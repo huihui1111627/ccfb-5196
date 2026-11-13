@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}申报查询{% endblock %}
+{% block content %}
+<h1>申报查询</h1>
+<section class="card">
+  <form method="get" action="/query" class="search-bar">
+    <input name="q" value="{{ q }}" placeholder="报关单号或外部单号" class="mono">
+    <button class="primary" type="submit">查询</button>
+  </form>
+  {% if not_found %}<div class="alert warn">未找到匹配的申报单</div>{% endif %}
+</section>
+{% if declarations %}
+<section class="card">
+  <h2>申报单（{{ declarations|length }}）</h2>
+  <table class="grid">
+    <thead><tr><th>报关单号</th><th>外部单号</th><th>贸易方式</th><th>项数</th><th>申报时间</th><th></th></tr></thead>
+    <tbody>
+    {% for d in declarations %}
+      {% set header = parse(d['header_json']) %}
+      <tr>
+        <td class="mono">{{ d['declaration_no'] }}</td>
+        <td class="mono">{{ d['external_ref'] }}</td>
+        <td>{{ header.get('trade_mode','') }}</td>
+        <td>{{ (parse(d['items_json']))|length }}</td>
+        <td>{{ d['created_at'] }}</td>
+        <td><a class="btn" href="/query/{{ d['declaration_no'] }}">查看</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% if attempts %}
+<section class="card">
+  <h2>申报尝试记录</h2>
+  <table class="grid">
+    <thead><tr><th>时间</th><th>外部单号</th><th>报关单号</th><th>结果</th><th>退回原因</th></tr></thead>
+    <tbody>
+    {% for a in attempts %}
+      <tr>
+        <td>{{ a['created_at'] }}</td>
+        <td class="mono">{{ a['external_ref'] }}</td>
+        <td class="mono">{{ a['declaration_no'] or '-' }}</td>
+        <td><span class="badge {{ a['outcome'] }}">{{ '受理' if a['outcome'] == 'accepted' else '退回' }}</span></td>
+        <td>{{ a['reason_message'] or '' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

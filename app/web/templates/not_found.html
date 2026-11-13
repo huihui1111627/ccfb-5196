@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block title %}未找到{% endblock %}
+{% block content %}
+<section class="panel"><div class="no-data">请求的记录不存在。<a href="{{ url_for('index') }}">返回待录队列</a></div></section>
+{% endblock %}

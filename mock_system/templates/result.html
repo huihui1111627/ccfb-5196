@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}提交结果{% endblock %}
+{% block content %}
+<div class="result-wrap">
+  <div class="result-card {{ 'success' if ok else 'failure' }}" id="result-card">
+    <div class="result-icon">{{ '✓' if ok else '✕' }}</div>
+    <h1 id="result-title">{{ title }}</h1>
+    {% if ok %}
+      <p>报关单号：<b class="mono" id="result-declaration-no">{{ declaration_no }}</b></p>
+      <p>外部单号：<span class="mono">{{ ref }}</span> · 共 {{ items_count }} 项</p>
+      <div class="actions">
+        <a class="btn" href="/query/{{ declaration_no }}">查看申报单</a>
+        <a class="btn" href="/declarations">返回列表</a>
+      </div>
+    {% else %}
+      <p id="result-message">{{ message }}</p>
+      {% if code %}<p>退回代码：<b class="mono" id="result-code">{{ code }}</b></p>{% endif %}
+      {% if hint %}<p class="muted">处理建议：{{ hint }}</p>{% endif %}
+      {% if ref %}
+      <div class="actions">
+        <a class="btn" href="/declaration/new?ref={{ ref }}">修改后重新提交</a>
+        <a class="btn" href="/declarations">返回列表</a>
+      </div>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

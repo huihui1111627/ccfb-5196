@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}任务 #{{ run['id'] }} · 报关单自动录入{% endblock %}
+{% block page_head %}
+  <div>
+    <h1>录入任务 #{{ run['id'] }}</h1>
+    <div class="sub mono-small">{{ run['started_at'] }} → {{ run['finished_at'] or '进行中' }} ·
+      凭证 {{ run['claimant'] }}</div>
+  </div>
+  <div class="toolbar"><a class="btn" href="{{ url_for('runs_page') }}">返回任务列表</a></div>
+{% endblock %}
+{% block content %}
+{% if steps %}
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  const PAGE = 40;
+  const list = document.getElementById('step-list');
+  const items = [...list.querySelectorAll('.tl-item')];
+  const more = document.getElementById('load-more');
+  const count = document.getElementById('step-count');
+  const search = document.getElementById('step-search');
+  const onlyErrors = document.getElementById('only-errors');
+  let shown = PAGE;
+  let filtered = items.slice();
+
+  function applyFilter() {
+    const q = search.value.trim().toLowerCase();
+    const errOnly = onlyErrors.checked;
+    filtered = items.filter(el =>
+      (!q || el.dataset.search.includes(q)) &&
+      (!errOnly || el.dataset.problem === '1'));
+    items.forEach(el => el.style.display = 'none');
+    filtered.slice(0, shown).forEach(el => el.style.display = '');
+    count.textContent = `${Math.min(shown, filtered.length)} / ${filtered.length}`;
+    more.style.display = shown < filtered.length ? '' : 'none';
+    list.querySelector('.no-match').style.display = filtered.length ? 'none' : '';
+  }
+  more.addEventListener('click', () => { shown += PAGE; applyFilter(); });
+  search.addEventListener('input', () => { shown = PAGE; applyFilter(); });
+  onlyErrors.addEventListener('change', () => { shown = PAGE; applyFilter(); });
+  applyFilter();
+});
+</script>
+{% endif %}
+
+<div class="kpis">
+  <div class="kpi"><div class="label">处理单据</div><div class="value">{{ stats.get('docs_attempted', 0) }}</div></div>
+  <div class="kpi ok"><div class="label">申报受理</div><div class="value">{{ stats.get('accepted', 0) }}</div></div>
+  <div class="kpi warn"><div class="label">系统退单</div><div class="value">{{ stats.get('rejected', 0) }}</div></div>
+  <div class="kpi"><div class="label">已存在跳过</div><div class="value">{{ stats.get('skipped_accepted', 0) }}</div></div>
+  <div class="kpi err"><div class="label">结果不明</div><div class="value">{{ stats.get('uncertain', 0) }}</div></div>
+  <div class="kpi"><div class="label">会话重登</div><div class="value">{{ stats.get('relogins', 0) }}</div></div>
+  <div class="kpi"><div class="label">回读一致 / 差异</div>
+    <div class="value">{{ stats.get('verified_ok', 0) }} <small>/ {{ stats.get('verified_mismatch', 0) }}</small></div></div>
+</div>
+
+<div class="split">
+  <section class="panel">
+    <div class="panel-head"><h2>步骤与截图</h2>
+      <div class="legend">
+        <span><i style="background:#157347"></i>成功</span>
+        <span><i style="background:#b26a00"></i>警告</span>
+        <span><i style="background:#c02b3a"></i>失败</span>
+      </div>
+    </div>
+    {% if steps %}
+    <div class="step-filter">
+      <input type="text" id="step-search" placeholder="筛选步骤 / 单号 / 消息…">
+      <label class="check"><input type="checkbox" id="only-errors"> 只看问题步骤</label>
+      <span class="muted" id="step-count"></span>
+    </div>
+    <div class="timeline" id="step-list">
+      {% for s in steps %}
+      <div class="tl-item {{ s['status'] }}" data-search="{{ (s['step'] ~ ' ' ~ (s['external_ref'] or '') ~ ' ' ~ (s['message'] or ''))|lower }}"
+           data-problem="{{ 1 if s['status'] in ('error','warning') else 0 }}">
+        <span class="tl-time mono-small">{{ s['created_at'][11:19] }}</span>
+        <b>{{ s['step'] }}</b>{% if s['item_no'] %} · 项{{ s['item_no'] }}{% endif %}
+        {% if s['doc_id'] %}<span class="badge">{{ s['external_ref'] or ('#' ~ s['doc_id']) }}</span>{% endif %}
+        <div>{{ s['message'] or '' }}</div>
+        {% if s['screenshot_path'] %}
+          {% set rel = s['screenshot_path'].replace('\\', '/').split('/screenshots/')[-1] %}
+          <details class="shot-details">
+            <summary>查看截图</summary>
+            <a href="{{ url_for('screenshot', path=rel) }}" target="_blank">
+              <img class="shot" src="{{ url_for('screenshot', path=rel) }}" loading="lazy"
+                   alt="{{ s['step'] }} 截图">
+            </a>
+          </details>
+        {% endif %}
+        {% if s['url'] %}<div class="hint mono-small">{{ s['url'] }}</div>{% endif %}
+      </div>
+      {% endfor %}
+      <div class="no-match muted" style="display:none;padding:14px">没有符合条件的步骤</div>
+    </div>
+    <div class="toolbar" style="margin-top:10px">
+      <button class="btn" id="load-more">显示更多步骤</button>
+    </div>
+    {% else %}<div class="no-data">暂无步骤</div>{% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>任务参数</h2>
+    <table class="kv">
+      <tr><th>模式</th><td>{{ run['mode'] }}</td></tr>
+      <tr><th>批次</th><td>{{ run['batch_id'] or '全部待录' }}</td></tr>
+      <tr><th>状态</th><td>{{ run['status'] }}</td></tr>
+      <tr><th>最后心跳</th><td class="mono-small">{{ run['heartbeat_at'] or '—' }}</td></tr>
+      <tr><th>备注</th><td>{{ run['note'] or '—' }}</td></tr>
+    </table>
+    <div class="section-title">原始统计</div>
+    <pre class="mono-small" style="white-space:pre-wrap;background:#fafbfc;padding:10px;border-radius:5px;border:1px solid #eef1f4">{{ stats | tojson_pretty }}</pre>
+  </section>
+</div>
+{% endblock %}

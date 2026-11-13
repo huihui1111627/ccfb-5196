@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}录入任务 · 报关单自动录入{% endblock %}
+{% block page_head %}
+  <div>
+    <h1>录入任务与每日统计</h1>
+    <div class="sub">每一步都有截图留档；失败与提交结果不明的票单独列出，重跑前会先核实系统。</div>
+  </div>
+  <div class="toolbar">
+    <form method="post" action="{{ url_for('run_start') }}">
+      <button class="btn primary" {{ 'disabled' if stats.uncertain or false }}>启动录入任务</button>
+    </form>
+    <form method="post" action="{{ url_for('run_stop') }}">
+      <button class="btn" {{ 'disabled' if not (stats.submission_states or {}).get('submitting') }}>停止</button>
+    </form>
+    <a class="btn" href="{{ url_for('reconcile_export') }}">导出统计 Excel</a>
+  </div>
+{% endblock %}
+{% block content %}
+
+<div class="kpis">
+  <div class="kpi"><div class="label">申报受理</div><div class="value ok">{{ stats.accepted_declarations }}<small> 单</small></div></div>
+  <div class="kpi"><div class="label">申报退单</div><div class="value warn">{{ stats.rejected_attempts }}<small> 次</small></div></div>
+  <div class="kpi"><div class="label">受理成功率</div><div class="value">{{ stats.submission_acceptance_rate if stats.submission_acceptance_rate is not none else '—' }}<small>%</small></div></div>
+  <div class="kpi"><div class="label">回读一致率</div><div class="value">{{ stats.verification_success_rate if stats.verification_success_rate is not none else '—' }}<small>%</small></div></div>
+  <div class="kpi"><div class="label">累计录入商品项</div><div class="value">{{ stats.items_entered }}</div></div>
+  <div class="kpi {{ 'warn' if stats.uncertain else '' }}"><div class="label">结果不明（待人工核实）</div><div class="value">{{ stats.uncertain }}</div></div>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h2>每日录入量与成功率</h2>
+    <span class="muted">按最新单据状态汇总；重录票按最终结果计入</span></div>
+  <table class="grid">
+    <thead><tr><th>日期</th><th class="right">录入商品项</th><th class="right">申报受理</th>
+      <th class="right">退单</th><th class="right">受理成功率</th><th class="right">回读一致</th>
+      <th class="right">回读差异</th><th class="right">一致率</th>
+      <th class="right">会话重登</th></tr></thead>
+    <tbody>
+    {% for d in daily %}
+      <tr>
+        <td class="mono-small">{{ d.day }}</td>
+        <td class="right">{{ d.items_entered }}</td>
+        <td class="right">{{ d.submit_ok }}</td>
+        <td class="right">{{ d.submit_rejected }}</td>
+        <td class="right">{{ d.accept_rate if d.accept_rate is not none else '—' }}{% if d.accept_rate is not none %}%{% endif %}</td>
+        <td class="right">{{ d.verified_ok }}</td>
+        <td class="right">{{ d.verified_mismatch }}</td>
+        <td class="right">{{ d.verify_match_rate if d.verify_match_rate is not none else '—' }}{% if d.verify_match_rate is not none %}%{% endif %}</td>
+        <td class="right">{{ d.relogins }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="9" class="no-data">暂无统计数据</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>录入任务</h2><span class="muted">点击任务查看逐步截图</span></div>
+  {% if runs %}
+  <table class="grid">
+    <thead><tr><th>任务</th><th>开始</th><th>结束</th><th>状态</th>
+      <th>统计</th><th class="right">错误步骤</th><th></th></tr></thead>
+    <tbody>
+    {% for r in runs %}
+      {% set st = r['stats_json'] | fromjson %}
+      <tr>
+        <td class="mono">#{{ r['id'] }}</td>
+        <td class="mono-small">{{ r['started_at'][:19].replace('T',' ') }}</td>
+        <td class="mono-small">{{ (r['finished_at'] or '进行中')[:19].replace('T',' ') }}</td>
+        <td><span class="badge {{ 'verified' if r['status']=='finished' else ('queued' if r['status']=='running' else 'failed') }}">
+          {{ {'running':'运行中','finished':'已结束','aborted':'已中止','crashed_recovered':'崩溃后恢复'}.get(r['status'], r['status']) }}</span></td>
+        <td class="mono-small">
+          受理 {{ st.get('accepted',0) }} · 退单 {{ st.get('rejected',0) }} ·
+          跳过 {{ st.get('skipped_accepted',0) }} · 不明 {{ st.get('uncertain',0) }} ·
+          重登 {{ st.get('relogins',0) }}
+        </td>
+        <td class="right">
+          {% if r['errs'] %}<span class="badge rejected">{{ r['errs'] }}</span>{% else %}—{% endif %}
+        </td>
+        <td><a class="btn small" href="{{ url_for('run_detail', run_id=r['id']) }}">查看</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="no-data">尚未运行录入任务</div>{% endif %}
+</section>
+{% endblock %}

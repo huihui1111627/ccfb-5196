@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ d['declaration_no'] }}{% endblock %}
+{% block content %}
+<h1>申报单 <span class="mono">{{ d['declaration_no'] }}</span></h1>
+<section class="card">
+  <h2>表头</h2>
+  <table class="kv">
+    <tbody>
+      <tr><th>外部单号</th><td class="mono">{{ d['external_ref'] }}</td>
+          <th>申报时间</th><td>{{ d['created_at'] }}</td></tr>
+      <tr><th>申报类型</th><td data-field="declaration_type" data-value="{{ header.get('declaration_type','') }}">{{ header.get('declaration_type','') }}</td>
+          <th>贸易方式</th><td data-field="trade_mode" data-value="{{ header.get('trade_mode','') }}">{{ header.get('trade_mode','') }}</td></tr>
+      <tr><th>申报口岸</th><td data-field="port" data-value="{{ header.get('port','') }}">{{ header.get('port','') }}</td>
+          <th>运抵国</th><td data-field="destination_country" data-value="{{ header.get('destination_country','') }}">{{ header.get('destination_country','') }}</td></tr>
+      <tr><th>境内发货人</th><td data-field="consignor" data-value="{{ header.get('consignor','') }}">{{ header.get('consignor','') }}</td>
+          <th>境外收货人</th><td data-field="consignee" data-value="{{ header.get('consignee','') }}">{{ header.get('consignee','') }}</td></tr>
+      <tr><th>币制</th><td data-field="currency" data-value="{{ header.get('currency','') }}">{{ header.get('currency','') }}</td>
+          <th>备注</th><td>{{ header.get('remark','') }}</td></tr>
+      {% for k, label in catalog.FIELD_LABELS.items() %}
+        {% if header.get(k) %}
+        <tr><th>{{ label }}</th><td data-field="{{ k }}" data-value="{{ header.get(k) }}">{{ header.get(k) }}</td><th></th><td></td></tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+<section class="card">
+  <h2>商品明细（{{ items|length }} 项）</h2>
+  {% for ino, item in items.items() %}
+  <div class="item-block" data-item-no="{{ ino }}">
+    <h3>项号 {{ ino }} · {{ item.get('goods_name','') }}</h3>
+    <table class="kv">
+      <tbody>
+        <tr><th>HS编码</th><td class="mono" data-field="hs_code" data-value="{{ item.get('hs_code','') }}">{{ item.get('hs_code','') }}</td>
+            <th>商品名称</th><td data-field="goods_name" data-value="{{ item.get('goods_name','') }}">{{ item.get('goods_name','') }}</td></tr>
+        <tr><th>规格型号</th><td data-field="spec_model" data-value="{{ item.get('spec_model','') }}">{{ item.get('spec_model','') }}</td>
+            <th>数量</th><td data-field="quantity" data-value="{{ item.get('quantity','') }}">{{ item.get('quantity','') }} {{ item.get('unit','') }}</td></tr>
+        <tr><th>单价</th><td data-field="unit_price" data-value="{{ item.get('unit_price','') }}">{{ item.get('unit_price','') }}</td>
+            <th>总价</th><td data-field="total_price" data-value="{{ item.get('total_price','') }}">{{ item.get('total_price','') }} {{ item.get('currency','') }}</td></tr>
+        <tr><th>原产国</th><td data-field="origin_country" data-value="{{ item.get('origin_country','') }}">{{ item.get('origin_country','') }}</td>
+            <th>最终目的国</th><td data-field="destination_country" data-value="{{ item.get('destination_country','') }}">{{ item.get('destination_country','') }}</td></tr>
+        <tr><th>成交计量单位</th><td data-field="unit" data-value="{{ item.get('unit','') }}">{{ item.get('unit','') }}</td><th></th><td></td></tr>
+      </tbody>
+    </table>
+    <div class="elements">
+      <span class="muted">申报要素：</span>
+      {% for k, v in (item.get('elements') or {}).items() %}
+        <span class="element-tag">{{ k }}：{{ v }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% endblock %}

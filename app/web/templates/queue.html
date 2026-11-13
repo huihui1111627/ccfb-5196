@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}待录队列 · 报关单自动录入{% endblock %}
+{% block page_head %}
+  <div>
+    <h1>待录队列</h1>
+    <div class="sub">导入客户发票 → 校验 → 加入队列 → 自动录入。已申报的单据不会再进入队列。</div>
+  </div>
+  <div class="toolbar">
+    <form method="post" action="{{ url_for('run_start') }}">
+      <button class="btn primary" {{ 'disabled' if active }}>开始录入（全部待录）</button>
+    </form>
+    <a class="btn" href="{{ url_for('reconcile_page') }}">核对差异</a>
+    <a class="btn" href="{{ url_for('rejections_page') }}">退单处理</a>
+  </div>
+{% endblock %}
+{% block content %}
+
+<div class="kpis">
+  <div class="kpi"><div class="label">待录（校验通过）</div>
+    <div class="value">{{ counts.get('ready', 0) + counts.get('queued', 0) + counts.get('revision', 0) }}<small> 票</small></div></div>
+  <div class="kpi err"><div class="label">校验未通过</div>
+    <div class="value">{{ counts.get('needs_fix', 0) }}<small> 票</small></div></div>
+  <div class="kpi warn"><div class="label">待处理退单</div>
+    <div class="value">{{ counts.get('rejected', 0) }}<small> 票</small></div></div>
+  <div class="kpi"><div class="label">回读差异</div>
+    <div class="value">{{ counts.get('verified_mismatch', 0) }}<small> 票</small></div></div>
+  <div class="kpi ok"><div class="label">已申报并核对一致</div>
+    <div class="value">{{ counts.get('verified', 0) }}<small> 票</small></div></div>
+</div>
+
+{% if counts.get('failed', 0) or counts.get('submitting', 0) %}
+<div class="alert warning">
+  有 {{ counts.get('failed', 0) }} 票失败 / {{ counts.get('submitting', 0) }} 票提交中。
+  提交中的票可能是上次进程中断留下的 — 下次录入会先查询系统确认，<b>不会自动重交</b>。
+  <a href="{{ url_for('runs_page') }}">查看录入任务</a>
+</div>
+{% endif %}
+
+<div class="split">
+  <div>
+    <section class="panel">
+      <div class="panel-head">
+        <h2>导入客户发票（Excel / PDF）</h2>
+        <span class="muted">支持多发票自动拆票；重复导入相同内容会被跳过</span>
+      </div>
+      <div class="drop-zone" id="drop-zone">
+        <b>拖拽文件到此处</b>，或 <span class="link">点击选择</span><br>
+        <span class="hint">.xlsx / .xlsm / .pdf，可多选</span>
+        <input type="file" id="file-input" multiple accept=".xlsx,.xlsm,.xls,.pdf" hidden>
+      </div>
+      <div id="import-status" class="hint"></div>
+      <div id="import-results"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>单据列表</h2>
+        <form method="post" action="{{ url_for('run_start') }}" class="toolbar">
+          <input type="hidden" id="queue-ids" name="doc_ids" value="">
+          <button class="btn" type="submit" id="run-selected" disabled>录入选中单据</button>
+        </form>
+      </div>
+      {% if docs %}
+      <table class="grid" id="doc-table">
+        <thead><tr>
+          <th style="width:28px"><input type="checkbox" id="check-all"></th>
+          <th>外部单号</th><th>来源</th><th>贸易方式</th><th class="right">项数</th>
+          <th>状态</th><th class="right">校验</th><th>更新时间</th><th></th>
+        </tr></thead>
+        <tbody>
+        {% for d in docs %}
+          {% set h = d['header_json'] | fromjson %}
+          <tr>
+            <td><input type="checkbox" class="row-check" value="{{ d['id'] }}"
+                       {{ 'disabled' if d['status'] not in ('ready','queued','revision','needs_fix','failed') }}></td>
+            <td><a class="mono" href="{{ url_for('document_detail', doc_id=d['id']) }}">{{ d['external_ref'] }}</a></td>
+            <td><span class="badge">{{ d['source_kind'] }}</span> <span class="muted">{{ d['source_filename'] or '' }}</span></td>
+            <td>{{ h.get('trade_mode','') }}</td>
+            <td class="right">{{ (d['items_json'] | fromjson)|length }}</td>
+            <td><span class="badge {{ d['status'] }}">{{ status_label(d['status']) }}</span></td>
+            <td class="right">
+              {% set v = d['validation_json'] | fromjson %}
+              {% if v and v.get('errors') %}<span class="code-tag" style="color:var(--err)">{{ v['errors']|length }} 错</span>
+              {% elif v and v.get('warnings') %}<span class="code-tag" style="color:var(--warn)">{{ v['warnings']|length }} 警</span>
+              {% else %}<span class="ok-cell">✓</span>{% endif %}
+            </td>
+            <td class="muted mono-small">{{ d['updated_at'][5:16].replace('T',' ') }}</td>
+            <td class="actions-cell">
+              {% if d['status'] in ('ready','queued','revision','failed') %}
+              <button class="btn small queue-one" data-id="{{ d['id'] }}">入队</button>
+              {% endif %}
+              <a class="btn small" href="{{ url_for('document_detail', doc_id=d['id']) }}">详情</a>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="no-data">还没有单据。请先导入客户发票。</div>
+      {% endif %}
+    </section>
+  </div>
+
+  <div>
+    <section class="panel">
+      <h2>最近导入批次</h2>
+      {% if batches %}
+      <table class="grid">
+        <thead><tr><th>文件</th><th class="right">票数</th><th>时间</th></tr></thead>
+        <tbody>
+        {% for b in batches %}
+          <tr>
+            <td><span class="mono-small">{{ b['source_filename'] }}</span>
+              <div class="muted mono-small">{{ b['source_kind'] }} · {{ b['doc_count'] }}票</div></td>
+            <td class="right">{{ b['doc_count'] }}</td>
+            <td class="muted mono-small">{{ b['imported_at'][5:16].replace('T',' ') }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<div class="no-data">暂无批次</div>{% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>最近录入任务</h2>
+      {% if recent_runs %}
+      {% for r in recent_runs %}
+        <div style="padding:8px 0;border-bottom:1px solid #eef1f4">
+          <a href="{{ url_for('run_detail', run_id=r['id']) }}">任务 #{{ r['id'] }}</a>
+          <span class="badge {{ 'verified' if r['status']=='finished' else 'failed' }}">{{ r['status'] }}</span>
+          <div class="muted mono-small">{{ r['started_at'][5:16].replace('T',' ') }} →
+            {{ (r['finished_at'] or '进行中')[5:16].replace('T',' ') }}</div>
+        </div>
+      {% endfor %}
+      {% else %}<div class="no-data">尚未运行录入任务</div>{% endif %}
+      <div style="margin-top:10px"><a class="btn small" href="{{ url_for('runs_page') }}">全部任务 / 统计</a></div>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const drop = document.getElementById('drop-zone');
+const input = document.getElementById('file-input');
+drop.addEventListener('click', () => input.click());
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('hover'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('hover'));
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('hover');
+  upload(e.dataTransfer.files);
+});
+input.addEventListener('change', () => upload(input.files));
+
+async function upload(files) {
+  if (!files || !files.length) return;
+  const fd = new FormData();
+  [...files].forEach(f => fd.append('files', f));
+  const status = document.getElementById('import-status');
+  const out = document.getElementById('import-results');
+  status.textContent = '正在上传并解析…';
+  out.innerHTML = '';
+  try {
+    const resp = await fetch('{{ url_for("api_import") }}', {method: 'POST', body: fd});
+    const data = await resp.json();
+    let html = '';
+    for (const r of data.results || []) {
+      if (!r.ok) { html += `<div class="alert error">${r.filename || ''}：${r.error}</div>`; continue; }
+      let parts = `<b>${r.filename}</b>：解析 ${r.invoice_count} 张发票 → ${r.split_count} 票，新增 ${r.created.length} 票`;
+      if (r.skipped.length) parts += `，跳过重复 ${r.skipped.length} 票`;
+      if (r.failed.length) parts += `，失败 ${r.failed.length}`;
+      const cls = r.state === 'needs_fix' ? 'warning' : 'info';
+      html += `<div class="alert ${cls}">${parts}`;
+      const bad = r.created.filter(c => !c.ok);
+      if (bad.length) html += `<div class="hint">校验未通过：${bad.map(b => b.external_ref + '(' + b.errors + '错)').join('，')}</div>`;
+      html += '</div>';
+    }
+    out.innerHTML = html;
+    status.textContent = '';
+    setTimeout(() => location.reload(), 900);
+  } catch (err) {
+    status.textContent = '导入失败：' + err;
+  }
+}
+
+// selection / queue
+const checkAll = document.getElementById('check-all');
+const rows = () => [...document.querySelectorAll('.row-check')].filter(c => !c.disabled);
+checkAll?.addEventListener('change', () => {
+  rows().forEach(c => c.checked = checkAll.checked);
+  syncSelection();
+});
+rows().forEach(c => c.addEventListener('change', syncSelection));
+function syncSelection() {
+  const ids = rows().filter(c => c.checked).map(c => c.value);
+  document.getElementById('queue-ids').value = ids.join(',');
+  document.getElementById('run-selected').disabled = ids.length === 0;
+}
+document.querySelectorAll('.queue-one').forEach(b => b.addEventListener('click', async () => {
+  const resp = await fetch('{{ url_for("api_queue") }}', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({document_ids: [Number(b.dataset.id)]})
+  });
+  const data = await resp.json();
+  if (data.ok) { b.textContent = '已入队'; b.disabled = true; }
+}));
+</script>
+{% endblock %}

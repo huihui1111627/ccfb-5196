@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+{% block title %}{{ doc['external_ref'] }} · 单据详情{% endblock %}
+{% block page_head %}
+  <div>
+    <h1>{{ doc['external_ref'] }}
+      <span class="badge {{ doc['status'] }}">{{ status_label(doc['status']) }}</span>
+    </h1>
+    <div class="sub">
+      {{ doc['source_filename'] }} · {{ doc['page_ref'] or '' }} ·
+      导入 {{ doc['created_at'][:19].replace('T',' ') }}
+      {% if sub and sub['declaration_no'] %} · 报关单号 <span class="mono">{{ sub['declaration_no'] }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="toolbar">
+    {% if doc['status'] not in ('submitted','verified','verified_mismatch') %}
+    <form method="post" action="{{ url_for('run_start') }}">
+      <input type="hidden" name="doc_ids" value="{{ doc['id'] }}">
+      <button class="btn primary">录入此票</button>
+    </form>
+    {% endif %}
+    {% if sub and sub['declaration_no'] %}
+    <form method="post" action="{{ url_for('reconcile_recheck', doc_id=doc['id']) }}">
+      <button class="btn">重新回读核对</button>
+    </form>
+    {% endif %}
+    {% if rejection and rejection['status'] in ('open','handling') %}
+    <a class="btn" href="{{ url_for('rejections_page') }}">处理退单</a>
+    {% endif %}
+    {% if doc['status'] == 'rejected' %}
+    <form method="post" action="{{ url_for('document_reenter', doc_id=doc['id']) }}">
+      <button class="btn">修正后重录</button>
+    </form>
+    {% endif %}
+  </div>
+{% endblock %}
+{% block content %}
+
+{% if sub and sub['state'] == 'uncertain' %}
+<div class="alert warning">
+  <b>提交结果不明</b>：上次提交后进程中断，系统未查到明确结果。为避免重复申报，
+  该票已锁定。<a href="{{ url_for('reconcile_page') }}">去核实并解除锁定</a>
+</div>
+{% endif %}
+
+<div class="split">
+  <div>
+    <section class="panel">
+      <div class="panel-head"><h2>校验结果</h2>
+        {% if validation and validation.get('errors') %}
+        <span class="badge rejected">{{ validation['errors']|length }} 个错误</span>
+        {% elif validation and validation.get('warnings') %}
+        <span class="badge revision">{{ validation['warnings']|length }} 个警告</span>
+        {% else %}<span class="badge verified">校验通过</span>{% endif %}
+      </div>
+      {% if validation and validation.get('stale') %}
+      <div class="muted">校验结果对应修改前的数据，已不适用。请重新校验。</div>
+      {% elif validation and (validation.get('errors') or validation.get('warnings')) %}
+      <ul class="findings">
+        {% for e in validation.get('errors', []) %}
+        <li class="error"><span class="code-tag">{{ e['code'] }}</span>
+          {% if e['item_no'] %}项{{ e['item_no'] }} · {% endif %}{{ e['message'] }}</li>
+        {% endfor %}
+        {% for w in validation.get('warnings', []) %}
+        <li class="warning"><span class="code-tag">{{ w['code'] }}</span>
+          {% if w['item_no'] %}项{{ w['item_no'] }} · {% endif %}{{ w['message'] }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}<div class="muted">未发现问题</div>{% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>表头（源单数据）</h2>
+        <button class="btn small" id="toggle-edit">编辑</button></div>
+      <table class="kv" id="header-view">
+        {% for key, label in catalog.DECLARATION_FIELD_LABELS.items() %}
+          {% if header.get(key) %}
+          <tr><th>{{ label }}</th><td>{{ header.get(key) }}</td></tr>
+          {% endif %}
+        {% endfor %}
+      </table>
+      <form id="header-edit" style="display:none">
+        <div class="form-row">
+        {% for key, label in catalog.DECLARATION_FIELD_LABELS.items() %}
+          <label class="field">{{ label }}
+            <input name="{{ key }}" value="{{ header.get(key, '') }}">
+          </label>
+        {% endfor %}
+        </div>
+        <div class="toolbar">
+          <button class="btn primary" type="submit">保存修改</button>
+          <span class="hint">保存后会重新校验；已申报的单据不允许修改</span>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>商品明细（{{ items|length }} 项）</h2>
+        <span class="muted">红底字段表示校验问题的关联字段</span></div>
+      {% for item in items %}
+      <details class="item-editor" {{ 'open' if loop.first }}>
+        <summary>
+          <span><b>{{ item['item_no'] }}.</b> {{ item['goods_name'] }}
+            <span class="muted mono-small">{{ item['hs_code'] }}</span></span>
+          <span class="muted mono-small">{{ item['quantity'] }} {{ item['unit'] }}
+            · {{ item['total_price'] }} {{ item['currency'] }}</span>
+        </summary>
+        <div class="body">
+          <table class="kv">
+            {% for key, label in catalog.ITEM_FIELD_LABELS.items() %}
+              {% if key not in ('elements',) %}
+              <tr><th>{{ label }}</th><td class="{{ 'problem-cell' if problem_fields.get(key) }}">
+                {% if key == 'item_no' %}{{ item.get(key) }}
+                {% else %}<input name="{{ key }}" value="{{ item.get(key, '') }}" form="item-form-{{ item['item_no'] }}"
+                                 style="padding:3px 6px;border:1px solid #dbe2e8;border-radius:3px">{% endif %}
+              </td></tr>
+              {% endif %}
+            {% endfor %}
+          </table>
+          <div class="section-title">申报要素</div>
+          <div class="element-grid">
+            {% for k, v in (item.get('elements') or {}).items() %}
+            <label class="field">{{ k }}
+              <input name="element-{{ k }}" value="{{ v }}"
+                     form="item-form-{{ item['item_no'] }}">
+            </label>
+            {% endfor %}
+          </div>
+          <div class="toolbar" style="margin-top:10px">
+            <button class="btn primary small save-item" data-item="{{ item['item_no'] }}">保存本项</button>
+            <span class="hint dirty-flag" data-item="{{ item['item_no'] }}"></span>
+          </div>
+        </div>
+      </details>
+      {% endfor %}
+    </section>
+  </div>
+
+  <div>
+    {% if compare %}
+    <section class="panel">
+      <div class="panel-head"><h2>回读核对</h2>
+        {% if compare.matched %}<span class="badge verified">一致</span>
+        {% else %}<span class="badge rejected">{{ compare.differences|length }} 处差异</span>{% endif %}
+      </div>
+      {% if compare.differences %}
+      <ul class="findings">
+        {% for d in compare.differences %}
+        <li class="error"><span class="code-tag">{{ d.scope }}{% if d.item_no %} · 项{{ d.item_no }}{% endif %}</span>
+          <b>{{ d.label }}</b>：源单 <span class="ok-cell">{{ d.expected or '（空）' }}</span>
+          → 系统 <span class="problem-cell">{{ d.actual or '（空）' }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      <div class="hint">核对字段 {{ compare.checked_fields }} 个。差异不会被自动修改。</div>
+      {% else %}
+      <div class="muted">共核对 {{ compare.checked_fields }} 个字段，全部一致。</div>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if rejection %}
+    <section class="panel">
+      <div class="panel-head"><h2>退单信息</h2>
+        <span class="badge {{ 'rejected' if rejection['status'] in ('open','handling') else 'verified' }}">
+          {{ {'open':'待处理','handling':'处理中','resolved':'已处理','waived':'已放弃'}.get(rejection['status'], rejection['status']) }}</span>
+      </div>
+      <table class="kv">
+        <tr><th>代码</th><td class="mono">{{ rejection['reason_code'] }}</td></tr>
+        <tr><th>原因</th><td>{{ rejection['reason_text'] }}</td></tr>
+        <tr><th>类别</th><td>{{ rejection['category'] }}</td></tr>
+        <tr><th>处理建议</th><td>{{ rejection['hint'] }}</td></tr>
+        {% if rejection['resolution_note'] %}
+        <tr><th>处理记录</th><td>{{ rejection['resolution_note'] }}（{{ rejection['handler'] }}）</td></tr>
+        {% endif %}
+      </table>
+    </section>
+    {% endif %}
+
+    <section class="panel">
+      <h2>提交记录（防重复申报凭证）</h2>
+      {% if sub %}
+      <table class="kv">
+        <tr><th>状态机</th><td><span class="badge {{ 'verified' if sub['state']=='accepted' else ('rejected' if sub['state']=='rejected' else 'revision') }}">{{ sub['state'] }}</span></td></tr>
+        <tr><th>报关单号</th><td class="mono">{{ sub['declaration_no'] or '—' }}</td></tr>
+        <tr><th>尝试次数</th><td>{{ sub['attempt_seq'] }}</td></tr>
+        <tr><th>认领进程</th><td class="mono-small">{{ sub['claimant'] or '—' }}</td></tr>
+        <tr><th>载荷指纹</th><td class="mono-small">{{ sub['payload_sha'][:20] }}…</td></tr>
+        <tr><th>提交时间</th><td class="mono-small">{{ sub['submitted_at'] or '—' }}</td></tr>
+        <tr><th>落定时间</th><td class="mono-small">{{ sub['settled_at'] or '—' }}</td></tr>
+        {% if sub['last_error'] %}<tr><th>最后错误</th><td class="step-error">{{ sub['last_error'] }}</td></tr>{% endif %}
+      </table>
+      {% if sub['state'] == 'uncertain' %}
+      <div class="section-title">人工核实</div>
+      <form method="post" action="{{ url_for('reconcile_page') }}" id="resolve-form">
+        <label class="field">核实结论
+          <select id="resolve-kind">
+            <option value="accepted">系统中已存在该票申报单（已受理）</option>
+            <option value="not_submitted">确认系统无该票申报记录，可重新录入</option>
+          </select>
+        </label>
+        <label class="field">报关单号（若已受理）
+          <input id="resolve-decl" class="mono" placeholder="MOCK-20261113-00001">
+        </label>
+        <label class="field">核实说明
+          <textarea id="resolve-note" placeholder="例如：已人工电话确认海关已受理"></textarea>
+        </label>
+        <div class="toolbar" style="margin-top:10px">
+          <button class="btn primary" type="button" id="resolve-submit">提交核实结论</button>
+        </div>
+      </form>
+      {% endif %}
+      {% else %}
+      <div class="muted">尚未提交过。</div>
+      {% endif %}
+
+      {% if attempts %}
+      <div class="section-title">尝试流水</div>
+      <table class="grid">
+        <thead><tr><th>#</th><th>类型</th><th>结果</th><th>报关单号</th><th>时间</th></tr></thead>
+        <tbody>
+        {% for a in attempts %}
+        <tr><td>{{ a['seq'] }}</td><td>{{ a['kind'] }}</td>
+          <td><span class="badge {{ 'verified' if a['outcome']=='accepted' else ('rejected' if a['outcome']=='rejected' else '') }}">{{ a['outcome'] }}</span></td>
+          <td class="mono-small">{{ a['declaration_no'] or '—' }}</td>
+          <td class="mono-small">{{ a['created_at'][11:19] }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>操作时间线</h2>
+      {% if steps %}
+      <div class="timeline">
+        {% for s in steps %}
+        <div class="tl-item {{ s['status'] }}">
+          <span class="tl-time mono-small">{{ s['created_at'][5:16].replace('T',' ') }}</span>
+          <b>{{ s['step'] }}</b>{% if s['item_no'] %} · 项{{ s['item_no'] }}{% endif %}
+          <div>{{ s['message'] or '' }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<div class="no-data">暂无记录</div>{% endif %}
+    </section>
+  </div>
+</div>
+
+{% for item in items %}
+<form id="item-form-{{ item['item_no'] }}" onsubmit="return false"></form>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Build a set of field names referenced by validation findings, per item.
+const PROBLEM_FIELDS = {{ problem_map | tojson }};
+document.querySelectorAll('.kv td[data-field]').forEach(() => {});
+
+document.getElementById('toggle-edit')?.addEventListener('click', () => {
+  const view = document.getElementById('header-view');
+  const form = document.getElementById('header-edit');
+  const showing = form.style.display !== 'none';
+  form.style.display = showing ? 'none' : 'block';
+  view.style.display = showing ? '' : 'none';
+});
+
+document.getElementById('header-edit')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const data = {};
+  new FormData(e.target).forEach((v, k) => data[k] = v);
+  const resp = await fetch('{{ url_for("api_update_document", doc_id=doc["id"]) }}', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({header: data})
+  });
+  const res = await resp.json();
+  if (!res.ok) { alert(res.error); return; }
+  location.reload();
+});
+
+document.querySelectorAll('.save-item').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const no = btn.dataset.item;
+    const form = document.getElementById('item-form-' + no);
+    const fields = {};
+    const elements = {};
+    form.querySelectorAll('input[name]').forEach(inp => {
+      if (inp.name.startsWith('element-')) elements[inp.name.slice(8)] = inp.value;
+      else fields[inp.name] = inp.value;
+    });
+    fields.elements = elements;
+    const resp = await fetch('{{ url_for("api_update_document", doc_id=doc["id"]) }}', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({items: [{item_no: Number(no), fields}]})
+    });
+    const res = await resp.json();
+    if (!res.ok) { alert(res.error); return; }
+    location.reload();
+  });
+});
+
+document.getElementById('resolve-submit')?.addEventListener('click', async () => {
+  const resolution = document.getElementById('resolve-kind').value;
+  const note = document.getElementById('resolve-note').value;
+  const declaration_no = document.getElementById('resolve-decl').value;
+  if (!confirm('确认提交核实结论？该操作会决定此票是否允许重新申报。')) return;
+  const resp = await fetch('{{ url_for("api_resolve_uncertain", doc_id=doc["id"]) }}', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({resolution, note, declaration_no})
+  });
+  const res = await resp.json();
+  if (!res.ok) { alert(res.error); return; }
+  location.reload();
+});
+</script>
+{% endblock %}

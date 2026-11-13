@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}登录 · 海关申报系统{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  <div class="login-card">
+    <h1>报关单录入</h1>
+    <p class="muted">请使用报关员账号登录</p>
+    {% if expired %}<div class="alert warn" id="session-expired-banner">登录会话已过期，请重新登录后继续申报。</div>{% endif %}
+    {% if error %}<div class="alert error" id="login-error">{{ error }}</div>{% endif %}
+    <form method="post" action="/login" id="login-form">
+      <input type="hidden" name="next" value="{{ next_url }}">
+      <label>用户名
+        <input name="username" id="username" autocomplete="username" required autofocus value="admin">
+      </label>
+      <label>密码
+        <input name="password" id="password" type="password" autocomplete="current-password" required value="admin123">
+      </label>
+      <button class="primary" type="submit" id="login-submit">登录</button>
+    </form>
+    <p class="hint">测试账号 admin / admin123</p>
+  </div>
+</div>
+{% endblock %}

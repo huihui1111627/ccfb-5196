@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}申报单管理{% endblock %}
+{% block content %}
+<h1>申报单管理</h1>
+{% if drafts %}
+<section class="card">
+  <h2>未提交草稿 <small>（会话过期后可从此处恢复）</small></h2>
+  <table class="grid">
+    <thead><tr><th>外部单号</th><th>更新时间</th><th></th></tr></thead>
+    <tbody>
+    {% for d in drafts %}
+      {% set header = parse(d['header_json']) %}
+      <tr>
+        <td class="mono">{{ d['ref'] }}</td>
+        <td>{{ d['updated_at'] }}</td>
+        <td><a class="btn" href="/declaration/new?ref={{ d['ref'] }}">继续录入</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+<section class="card">
+  <h2>已申报单证</h2>
+  {% if declarations %}
+  <table class="grid">
+    <thead><tr><th>报关单号</th><th>外部单号</th><th>贸易方式</th><th>项数</th><th>申报时间</th><th></th></tr></thead>
+    <tbody>
+    {% for d in declarations %}
+      {% set header = parse(d['header_json']) %}
+      {% set items = parse(d['items_json']) %}
+      <tr>
+        <td class="mono">{{ d['declaration_no'] }}</td>
+        <td class="mono">{{ d['external_ref'] }}</td>
+        <td>{{ header.get('trade_mode', '') }}</td>
+        <td>{{ items|length }}</td>
+        <td>{{ d['created_at'] }}</td>
+        <td><a class="btn" href="/query/{{ d['declaration_no'] }}">查看</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">暂无申报记录</p>{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}退单处理 · 报关单自动录入{% endblock %}
+{% block page_head %}
+  <div>
+    <h1>退单处理</h1>
+    <div class="sub">系统退回的申报单自动进入本队列，按原因分类处理。修正后可重新加入待录队列申报。</div>
+  </div>
+  <div class="toolbar">
+    <a class="btn {{ 'primary' if not status }}" href="{{ url_for('rejections_page') }}">全部</a>
+    <a class="btn {{ 'primary' if status=='open' }}" href="{{ url_for('rejections_page', status='open') }}">待处理 {{ counts.get('open', 0) }}</a>
+    <a class="btn {{ 'primary' if status=='handling' }}" href="{{ url_for('rejections_page', status='handling') }}">处理中 {{ counts.get('handling', 0) }}</a>
+    <a class="btn {{ 'primary' if status=='resolved' }}" href="{{ url_for('rejections_page', status='resolved') }}">已处理 {{ counts.get('resolved', 0) }}</a>
+  </div>
+{% endblock %}
+{% block content %}
+
+{% if rows %}
+{% for entry in rows %}
+  {% set r = entry.r %}
+  <section class="panel">
+    <div class="panel-head">
+      <h2>
+        <a class="mono" href="{{ url_for('document_detail', doc_id=r['doc_id']) }}">{{ r['external_ref'] }}</a>
+        <span class="badge rejected">{{ r['reason_code'] }}</span>
+        <span class="badge {{ 'revision' if r['status'] in ('open','handling') else 'verified' }}">
+          {{ {'open':'待处理','handling':'处理中','resolved':'已处理','waived':'已放弃'}.get(r['status']) }}</span>
+        <span class="muted">{{ category_labels.get(r['category'], r['category'] or '其他') }}</span>
+      </h2>
+      <span class="muted mono-small">{{ r['updated_at'][:19].replace('T',' ') }}</span>
+    </div>
+    <div class="alert error" style="margin-bottom:10px">{{ r['reason_text'] }}</div>
+    <div class="split" style="grid-template-columns:1fr 1fr">
+      <div>
+        <table class="kv">
+          <tr><th>处理建议</th><td>{{ r['hint'] or '—' }}</td></tr>
+          <tr><th>单据状态</th><td>{{ status_label(r['doc_status']) }}</td></tr>
+          <tr><th>贸易方式</th><td>{{ entry['header'].get('trade_mode','') }}</td></tr>
+          <tr><th>运抵国</th><td>{{ entry['header'].get('destination_country','') }}</td></tr>
+          <tr><th>项数</th><td>{{ entry['items']|length }}</td></tr>
+        </table>
+        <div class="section-title">商品明细</div>
+        <table class="grid">
+          <thead><tr><th>项号</th><th>HS编码</th><th>品名</th><th class="right">数量</th><th class="right">总价</th></tr></thead>
+          <tbody>
+          {% for item in entry['items'] %}
+          <tr><td>{{ item.item_no }}</td><td class="mono-small">{{ item.hs_code }}</td>
+            <td>{{ item.goods_name }}</td>
+            <td class="right">{{ item.quantity }} {{ item.unit }}</td>
+            <td class="right">{{ item.total_price }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div>
+        {% if r['status'] in ('open','handling') %}
+        <form method="post" action="{{ url_for('rejection_update', rejection_id=r['id']) }}">
+          <div class="form-row">
+            <label class="field">处理人<input type="text" name="handler" value="operator"></label>
+          </div>
+          <label class="field">处理说明
+            <textarea name="note" placeholder="例如：已补齐申报要素品牌类型；已换用新HS编码"></textarea>
+          </label>
+          <div class="toolbar" style="margin-top:10px">
+            <button class="btn primary" name="action" value="resolve">标记已处理</button>
+            <button class="btn" name="action" value="handling">标记处理中</button>
+            <button class="btn danger" name="action" value="waive">放弃此票</button>
+          </div>
+        </form>
+        <div class="section-title">处理完成后</div>
+        <form method="post" action="{{ url_for('rejection_reentry', doc_id=r['doc_id']) }}">
+          <button class="btn primary">修正后加入待录队列</button>
+          <div class="hint">若单据仍有校验错误，需先在详情页修正。</div>
+        </form>
+        {% else %}
+        <table class="kv">
+          <tr><th>处理人</th><td>{{ r['handler'] or '—' }}</td></tr>
+          <tr><th>处理说明</th><td>{{ r['resolution_note'] or '—' }}</td></tr>
+          <tr><th>处理时间</th><td class="mono-small">{{ r['resolved_at'] or '—' }}</td></tr>
+        </table>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+{% endfor %}
+{% else %}
+<section class="panel"><div class="no-data">没有退单记录。</div></section>
+{% endif %}
+{% endblock %}

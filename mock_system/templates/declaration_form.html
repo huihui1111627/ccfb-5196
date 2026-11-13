@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+{% block title %}新建申报{% endblock %}
+{% block content %}
+<h1>进出口货物申报单 <span class="muted mono">录入模式</span></h1>
+
+{% if draft %}
+<div class="alert info" id="draft-restored">
+  已恢复草稿 <b class="mono">{{ draft.ref }}</b>（更新于 {{ draft.updated_at }}），
+  已保存 {{ draft["items"]|length }} 项明细。
+</div>
+{% endif %}
+
+<div class="layout">
+  <section class="card grow">
+    <h2>一、表头信息</h2>
+    <form id="header-form" onsubmit="return false">
+      <input type="hidden" id="ref" value="{{ ref }}">
+      <div class="form-grid">
+        <label>外部单号（截图/查询用）
+          <input id="ref-display" value="{{ ref }}" readonly class="mono">
+        </label>
+        <label>申报类型
+          <select id="declaration_type" name="declaration_type" required>
+            <option value="出口">出口</option>
+            <option value="进口">进口</option>
+          </select>
+        </label>
+        <label>贸易方式 <span class="req">*</span>
+          <select id="trade_mode" name="trade_mode" required>
+            <option value="">请选择贸易方式</option>
+            {% for m in trade_modes %}
+            <option value="{{ m.code }}">{{ m.name }}（{{ m.code }}）</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>申报口岸
+          <select id="port" name="port">
+            {% for p in catalog.PORTS %}<option>{{ p }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>境内发货人
+          <input id="consignor" name="consignor" placeholder="境内发货人名称">
+        </label>
+        <label>境外收货人
+          <input id="consignee" name="consignee" placeholder="境外收货人名称">
+        </label>
+        <label>运抵国
+          <select id="destination_country" name="destination_country">
+            {% for c in catalog.COUNTRIES %}<option>{{ c }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>币制
+          <select id="currency" name="currency">
+            {% for c in catalog.CURRENCIES %}<option>{{ c }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="span2">备注
+          <input id="remark" name="remark">
+        </label>
+      </div>
+
+      <div id="mode-panel" class="mode-panel" data-mode="">
+        <div id="mode-status" class="status" aria-live="polite">请先选择贸易方式</div>
+        <div id="dynamic-fields" class="form-grid dynamic-fields"></div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="primary" id="save-header">暂存表头</button>
+        <span id="header-status" class="status" aria-live="polite"></span>
+      </div>
+    </form>
+  </section>
+
+  <section class="card grow">
+    <h2>二、商品明细 <small id="item-page-indicator">第 1 项</small></h2>
+    <div id="items-summary" class="items-summary"></div>
+
+    <form id="item-form" onsubmit="return false">
+      <div class="form-grid">
+        <label>项号
+          <input id="item-no" type="number" min="1" value="1" readonly>
+        </label>
+        <label>跳转到项号
+          <span class="jump-row">
+            <input id="item-jump" type="number" min="1" value="1">
+            <button type="button" class="btn" id="item-jump-go">跳转</button>
+          </span>
+        </label>
+        <label>HS编码 <span class="req">*</span>
+          <input id="hs_code" class="mono" placeholder="8位HS编码" maxlength="10">
+        </label>
+        <label>商品名称
+          <input id="goods_name">
+        </label>
+        <label>规格型号
+          <input id="spec_model">
+        </label>
+        <label>数量
+          <input id="quantity" inputmode="decimal">
+        </label>
+        <label>成交计量单位
+          <input id="unit" placeholder="台/个/千克">
+        </label>
+        <label>单价
+          <input id="unit_price" inputmode="decimal">
+        </label>
+        <label>总价
+          <input id="total_price" inputmode="decimal">
+        </label>
+        <label>币制
+          <select id="item_currency">
+            {% for c in catalog.CURRENCIES %}<option>{{ c }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>原产国
+          <select id="origin_country">
+            {% for c in catalog.COUNTRIES %}<option>{{ c }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>最终目的国
+          <select id="destination_country_item">
+            {% for c in catalog.COUNTRIES %}<option>{{ c }}</option>{% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div class="element-panel">
+        <div id="hs-status" class="status">输入HS编码后点击“查询税则”</div>
+        <button type="button" id="hs-lookup" class="btn">查询税则</button>
+        <div id="element-fields" class="form-grid"></div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="primary" id="item-save">暂存明细</button>
+        <button type="button" class="btn" id="item-prev">上一项</button>
+        <button type="button" class="btn" id="item-next">下一项</button>
+        <span id="item-status" class="status" aria-live="polite"></span>
+      </div>
+    </form>
+  </section>
+</div>
+
+<section class="card">
+  <h2>三、提交申报</h2>
+  <div class="submit-bar">
+    <button type="button" class="danger" id="submit-final">提交申报</button>
+    <span id="submit-status" class="status"></span>
+  </div>
+  <p class="hint">提交后如被退单，草稿仍保留，可修改后重新提交。</p>
+</section>
+
+<div class="modal" id="confirm-modal" hidden>
+  <div class="modal-card">
+    <h3>确认提交申报？</h3>
+    <p>外部单号 <b class="mono" id="confirm-ref"></b>，共 <b id="confirm-count"></b> 项明细。</p>
+    <p class="muted">提交后不可修改。请确认数据已核对。</p>
+    <div class="actions">
+      <button type="button" class="danger" id="confirm-submit-yes">确认提交</button>
+      <button type="button" class="btn" id="confirm-submit-no">取消</button>
+    </div>
+  </div>
+</div>
+
+<form id="submit-form" method="post" action="/declaration/submit" hidden>
+  <input type="hidden" name="ref" id="submit-ref">
+  <input type="hidden" name="confirm_level" value="final">
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const DRAFT = {{ draft | tojson }};
+let savedItems = DRAFT ? Object.entries(DRAFT.items).map(([k, v]) => ({...v, item_no: Number(k)})) : [];
+let currentPage = savedItems.length ? Math.max(...savedItems.map(i => i.item_no)) : 1;
+let headersLoadedForMode = null;
+let elementsRenderedFor = null;
+
+const $ = (id) => document.getElementById(id);
+function setStatus(el, text, cls) {
+  el.textContent = text;
+  el.className = 'status' + (cls ? ' ' + cls : '');
+}
+function statusFor(kind) {
+  return { okay: 'ok', error: 'err', loading: 'load' }[kind] || '';
+}
+
+async function saveHeader() {
+  const header = {
+    trade_mode: $('trade_mode').value,
+    declaration_type: $('declaration_type').value,
+    port: $('port').value,
+    consignor: $('consignor').value.trim(),
+    consignee: $('consignee').value.trim(),
+    destination_country: $('destination_country').value,
+    currency: $('currency').value,
+    remark: $('remark').value.trim(),
+  };
+  document.querySelectorAll('#dynamic-fields input').forEach(inp => {
+    header[inp.dataset.field] = inp.value.trim();
+  });
+  const resp = await fetch('/api/drafts', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ref: $('ref').value, header})
+  });
+  const data = await resp.json();
+  if (resp.status === 401 && data.session_expired) { window.location = '/login?expired=1'; throw new Error('session'); }
+  if (!data.ok) throw new Error(data.error || '保存失败');
+  setStatus($('header-status'), '表头已暂存 ' + data.updated_at, 'ok');
+  $('header-status').dataset.seq = data.updated_at;
+  return data;
+}
+
+$('save-header').addEventListener('click', () => saveHeader().catch(e => setStatus($('header-status'), String(e.message), 'err')));
+
+async function loadModeFields() {
+  const code = $('trade_mode').value;
+  if (!code) return;
+  $('mode-panel').dataset.mode = code;
+  $('dynamic-fields').innerHTML = '';
+  setStatus($('mode-status'), '正在加载联动字段…', 'load');
+  $('mode-panel').classList.remove('loaded');
+  const resp = await fetch('/api/trade-mode/' + encodeURIComponent(code));
+  if (resp.status === 401) { window.location = '/login?expired=1'; return; }
+  const data = await resp.json();
+  if (!data.ok) { setStatus($('mode-status'), data.error, 'err'); return; }
+  const frag = document.createDocumentFragment();
+  data.fields.forEach(f => {
+    const label = document.createElement('label');
+    label.className = 'dynamic-field';
+    label.innerHTML = `<span>${f.label} <span class="req">*</span></span>`;
+    const inp = document.createElement('input');
+    inp.id = 'field-' + f.name;
+    inp.dataset.field = f.name;
+    inp.name = f.name;
+    inp.placeholder = f.label;
+    label.appendChild(inp);
+    frag.appendChild(label);
+  });
+  $('dynamic-fields').appendChild(frag);
+  setStatus($('mode-status'), `已加载 ${data.name} 的联动字段（${data.fields.length}项）`, 'ok');
+  $('mode-panel').classList.add('loaded');
+  headersLoadedForMode = code;
+  applyHeaderValues();
+}
+
+$('trade_mode').addEventListener('change', () => { loadModeFields(); });
+
+function applyHeaderValues() {
+  if (!DRAFT || !DRAFT.header) return;
+  const h = DRAFT.header;
+  if (h.trade_mode && $('trade_mode').value !== h.trade_mode) { $('trade_mode').value = h.trade_mode; }
+  ['declaration_type','port','consignor','consignee','destination_country','currency','remark'].forEach(k => {
+    if (h[k] !== undefined && $(k)) $(k).value = h[k];
+  });
+  document.querySelectorAll('#dynamic-fields input').forEach(inp => {
+    if (h[inp.dataset.field] !== undefined) inp.value = h[inp.dataset.field];
+  });
+}
+
+if (DRAFT) {
+  ['declaration_type','port','consignor','consignee','destination_country','currency','remark'].forEach(k => {
+    if (DRAFT.header[k] !== undefined && $(k)) $(k).value = DRAFT.header[k];
+  });
+  if (DRAFT.header.trade_mode) { $('trade_mode').value = DRAFT.header.trade_mode; loadModeFields(); }
+} else {
+  setStatus($('mode-status'), '请先选择贸易方式', '');
+}
+
+function currentElementValues() {
+  const out = {};
+  document.querySelectorAll('#element-fields [data-element]').forEach(inp => {
+    out[inp.dataset.element] = inp.value;
+  });
+  return out;
+}
+
+async function lookupHS() {
+  const code = $('hs_code').value.trim();
+  if (!code) { setStatus($('hs-status'), '请输入HS编码', 'err'); return; }
+  // Keep what the operator already typed: a re-render of the same HS code
+  // must not wipe the 申报要素 (they are filled after the lookup resolves).
+  const previous = currentElementValues();
+  setStatus($('hs-status'), '查询中…', 'load');
+  const resp = await fetch('/api/hs/' + encodeURIComponent(code));
+  const data = await resp.json();
+  if (!data.ok) { setStatus($('hs-status'), data.error, 'err'); $('element-fields').innerHTML = ''; elementsRenderedFor = null; return; }
+  if (!$('goods_name').value.trim()) $('goods_name').value = data.name;
+  if (!$('unit').value.trim()) $('unit').value = data.unit;
+  const frag = document.createDocumentFragment();
+  data.elements.forEach((e, idx) => {
+    const label = document.createElement('label');
+    label.className = 'element-field';
+    label.innerHTML = `<span>${e.name} <span class="req">*</span></span>`;
+    let inp;
+    if (e.vocab) {
+      inp = document.createElement('select');
+      inp.innerHTML = `<option value="">请选择</option>` + e.vocab.map(v => `<option>${v}</option>`).join('');
+    } else {
+      inp = document.createElement('input');
+    }
+    inp.id = 'element-' + idx;
+    inp.dataset.element = e.name;
+    inp.dataset.index = idx;
+    label.appendChild(inp);
+    frag.appendChild(label);
+  });
+  $('element-fields').replaceChildren(frag);
+  if (previous && Object.keys(previous).length) {
+    document.querySelectorAll('#element-fields [data-element]').forEach(inp => {
+      if (previous[inp.dataset.element] !== undefined && previous[inp.dataset.element] !== '') {
+        inp.value = previous[inp.dataset.element];
+      }
+    });
+  } else {
+    applyItemElements();
+  }
+  setStatus($('hs-status'), `${data.code} ${data.name}，申报要素 ${data.elements.length} 项`, 'ok');
+  elementsRenderedFor = code;
+}
+
+$('hs-lookup').addEventListener('click', () => lookupHS().catch(e => setStatus($('hs-status'), String(e.message), 'err')));
+$('hs_code').addEventListener('change', () => { if ($('hs_code').value.trim().length >= 8) lookupHS(); });
+
+function collectItem() {
+  const elements = {};
+  document.querySelectorAll('#element-fields [data-element]').forEach(inp => {
+    elements[inp.dataset.element] = inp.value;
+  });
+  return {
+    item_no: Number($('item-no').value),
+    hs_code: $('hs_code').value.trim(),
+    goods_name: $('goods_name').value.trim(),
+    spec_model: $('spec_model').value.trim(),
+    quantity: $('quantity').value.trim(),
+    unit: $('unit').value.trim(),
+    unit_price: $('unit_price').value.trim(),
+    total_price: $('total_price').value.trim(),
+    currency: $('item_currency').value,
+    origin_country: $('origin_country').value,
+    destination_country: $('destination_country_item').value,
+    elements,
+  };
+}
+
+async function saveItem(advanced) {
+  const item = collectItem();
+  if (!item.hs_code) { setStatus($('item-status'), '请先填写HS编码', 'err'); return false; }
+  const resp = await fetch('/api/drafts/' + encodeURIComponent($('ref').value) + '/items', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({item})
+  });
+  const data = await resp.json();
+  if (resp.status === 401 && data.session_expired) { window.location = '/login?expired=1'; return false; }
+  if (!data.ok) { setStatus($('item-status'), data.error, 'err'); return false; }
+  const idx = savedItems.findIndex(i => i.item_no === item.item_no);
+  if (idx >= 0) savedItems[idx] = item; else savedItems.push(item);
+  setStatus($('item-status'), `第 ${item.item_no} 项已暂存`, 'ok');
+  $('item-status').dataset.seq = data.updated_at;
+  renderSummary();
+  if (advanced) goPage(item.item_no + 1);
+  return true;
+}
+
+$('item-save').addEventListener('click', () => saveItem(false));
+$('item-next').addEventListener('click', async () => {
+  const ok = await saveItem(false);
+  if (ok) goPage(currentPage + 1);
+});
+$('item-prev').addEventListener('click', () => goPage(Math.max(1, currentPage - 1)));
+$('item-jump-go').addEventListener('click', () => {
+  const target = Math.max(1, Number($('item-jump').value) || 1);
+  goPage(target);
+});
+
+function fillItem(item) {
+  $('item-no').value = item.item_no;
+  ['hs_code','goods_name','spec_model','quantity','unit','unit_price','total_price'].forEach(k => {
+    $(k).value = item[k] !== undefined ? item[k] : '';
+  });
+  if (item.currency) $('item_currency').value = item.currency;
+  if (item.origin_country) $('origin_country').value = item.origin_country;
+  if (item.destination_country) $('destination_country_item').value = item.destination_country;
+  $('element-fields').innerHTML = '';
+  elementsRenderedFor = null;
+  if (item.hs_code) {
+    lookupHS().then(() => { if (item.elements) applyItemElements(item.elements); });
+  }
+}
+
+function applyItemElements(elements) {
+  const src = elements || (findItem($('item-no').value)?.elements) || null;
+  if (!src) return;
+  document.querySelectorAll('#element-fields [data-element]').forEach(inp => {
+    if (src[inp.dataset.element] !== undefined) inp.value = src[inp.dataset.element];
+  });
+}
+
+function findItem(no) { return savedItems.find(i => i.item_no === Number(no)); }
+
+function goPage(no) {
+  currentPage = no;
+  $('item-no').value = no;
+  $('item-page-indicator').textContent = `第 ${no} 项`;
+  const item = findItem(no);
+  if (item) fillItem(item);
+  else {
+    ['hs_code','goods_name','spec_model','quantity','unit','unit_price','total_price'].forEach(k => $(k).value = '');
+    $('element-fields').innerHTML = '';
+    elementsRenderedFor = null;
+    setStatus($('hs-status'), '输入HS编码后点击“查询税则”', '');
+  }
+  setStatus($('item-status'), item ? `已载入第 ${no} 项` : `第 ${no} 项（新）`, '');
+}
+
+function renderSummary() {
+  const box = $('items-summary');
+  if (!savedItems.length) { box.innerHTML = '<span class="muted">尚未暂存明细</span>'; return; }
+  box.innerHTML = '<b>已暂存：</b>' + savedItems.slice().sort((a,b)=>a.item_no-b.item_no).map(i =>
+    `<button type="button" class="chip" data-item="${i.item_no}">${i.item_no}. ${i.goods_name || i.hs_code}</button>`).join(' ');
+  box.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => goPage(Number(b.dataset.item))));
+}
+
+$('submit-final').addEventListener('click', () => {
+  if (!savedItems.length) { setStatus($('submit-status'), '请先暂存至少一项明细', 'err'); return; }
+  $('confirm-ref').textContent = $('ref').value;
+  $('confirm-count').textContent = savedItems.length;
+  $('confirm-modal').hidden = false;
+});
+$('confirm-submit-no').addEventListener('click', () => { $('confirm-modal').hidden = true; });
+$('confirm-submit-yes').addEventListener('click', async () => {
+  try {
+    const ok = await saveItem(false);
+    if (!ok) { $('confirm-modal').hidden = true; return; }
+    setStatus($('submit-status'), '提交中…', 'load');
+    $('submit-ref').value = $('ref').value;
+    HTMLFormElement.prototype.submit.call($('submit-form'));
+  } catch (err) {
+    // The guard dialog eats unhandled promise rejections silently; surface it.
+    setStatus($('submit-status'), '提交失败：' + err.message, 'err');
+  }
+});
+
+renderSummary();
+if (savedItems.length) goPage(currentPage);
+</script>
+{% endblock %}

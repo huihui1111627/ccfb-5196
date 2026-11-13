@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}设置 · 报关单自动录入{% endblock %}
+{% block page_head %}
+  <div>
+    <h1>设置</h1>
+    <div class="sub">申报系统连接、会话与防重参数。修改立即生效于下一次录入任务。</div>
+  </div>
+{% endblock %}
+{% block content %}
+
+<div class="split">
+<section class="panel">
+  <h2>申报系统连接</h2>
+  {% if mock.ok %}
+  <div class="alert info">申报系统可访问：<span class="mono">{{ mock.url }}</span></div>
+  {% else %}
+  <div class="alert error">无法访问申报系统 <span class="mono">{{ mock.url }}</span>
+    <div class="hint">{{ mock.error }}</div>
+    <div class="hint">请先启动模拟系统：<span class="mono">python -m mock_system.app</span></div>
+  </div>
+  {% endif %}
+  <form method="post">
+    <div class="form-row">
+      <label class="field">申报系统地址
+        <input type="text" name="mock_base_url" value="{{ settings.mock_base_url }}" class="mono">
+      </label>
+      <label class="field">登录用户名
+        <input type="text" name="mock_username" value="{{ settings.mock_username }}">
+      </label>
+      <label class="field">登录密码（留空则不修改）
+        <input type="password" name="mock_password" placeholder="当前已配置">
+      </label>
+      <label class="field">系统会话时限（分钟，录入端按此安排续登）
+        <input type="number" name="session_minutes" value="{{ settings.session_minutes }}">
+      </label>
+    </div>
+    <div class="toolbar" style="margin-bottom:16px">
+      <button class="btn" type="button" id="test-mock">测试登录</button>
+      <span id="test-result" class="hint"></span>
+    </div>
+
+    <h2>录入执行</h2>
+    <div class="form-row">
+      <label class="field">浏览器慢动作（毫秒）
+        <input type="number" name="slow_mo_ms" value="{{ settings.slow_mo_ms }}">
+      </label>
+      <label class="field">退单重录上限（次）
+        <input type="number" name="max_resubmit" value="{{ settings.max_resubmit }}">
+      </label>
+      <label class="field">提交异常后等待核实（秒）
+        <input type="number" name="settle_seconds_after_uncertain" value="{{ settings.settle_seconds_after_uncertain }}">
+      </label>
+      <label class="field">结果核实查询次数
+        <input type="number" name="probe_attempts" value="{{ settings.probe_attempts }}">
+      </label>
+    </div>
+    <div class="toolbar" style="flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:16px">
+      <label class="check"><input type="checkbox" name="headless" value="1"
+        {{ 'checked' if settings.headless == '1' }}> 无头模式运行浏览器（关闭则可见录屏窗口）</label>
+      <label class="check"><input type="checkbox" name="verify_after_submit" value="1"
+        {{ 'checked' if settings.verify_after_submit == '1' }}> 申报受理后自动回读核对</label>
+      <label class="check"><input type="checkbox" name="screenshot_all_steps" value="1"
+        {{ 'checked' if settings.screenshot_all_steps == '1' }}> 每个录入步骤截图留档</label>
+    </div>
+    <button class="btn primary" type="submit">保存设置</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>防重复申报说明</h2>
+  <div class="hint" style="line-height:1.7">
+    每票在 <span class="mono">submissions</span> 中只有一条唯一记录，提交前必须先以
+    <b>数据库事务</b> 把状态从“未提交”改为“提交中”并记录认领进程，才能发出提交请求。<br><br>
+    若进程在提交过程中被杀，重启后<b>不会自动重发</b>：系统先向申报系统查询该外部单号，
+    已有受理记录则直接采纳；有明确退单则进入退单队列；两者都没有则标记为
+    “结果不明”，必须人工核实后才能重新排队。<br><br>
+    录入开始前还会做一次全量预检：申报系统中已存在的外部门号一律跳过。
+  </div>
+  {% if settings.mock_base_url %}
+  <div class="section-title">当前防重参数</div>
+  <table class="kv">
+    <tr><th>重录上限</th><td>{{ settings.max_resubmit }} 次退单以内</td></tr>
+    <tr><th>核实等待</th><td>{{ settings.settle_seconds_after_uncertain }} 秒</td></tr>
+    <tr><th>核实查询</th><td>{{ settings.probe_attempts }} 次</td></tr>
+    <tr><th>自动回读</th><td>{{ '开启' if settings.verify_after_submit == '1' else '关闭' }}</td></tr>
+  </table>
+  {% endif %}
+</section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('test-mock').addEventListener('click', async () => {
+  const out = document.getElementById('test-result');
+  out.textContent = '测试中…';
+  try {
+    const resp = await fetch('{{ url_for("settings_test_mock") }}', {method: 'POST'});
+    const data = await resp.json();
+    out.textContent = data.message;
+    out.style.color = data.ok ? 'var(--ok)' : 'var(--err)';
+  } catch (err) { out.textContent = '测试失败：' + err; out.style.color = 'var(--err)'; }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}报关单自动录入系统{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='console.css') }}">
+</head>
+<body>
+{% set counts = state_counts() %}
+<aside class="sidebar">
+  <div class="logo">
+    <span class="mark">关</span>
+    <div><b>报关单自动录入</b><small>Customs Entry Console</small></div>
+  </div>
+  <nav>
+    <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint == 'index' }}">待录队列 <span class="pill">{{ counts.get('ready',0) + counts.get('queued',0) }}</span></a>
+    <a href="{{ url_for('runs_page') }}" class="{{ 'active' if request.endpoint in ('runs_page','run_detail') }}">录入任务</a>
+    <a href="{{ url_for('reconcile_page') }}" class="{{ 'active' if request.endpoint == 'reconcile_page' }}">核对差异
+      {% set diff = counts.get('verified_mismatch', 0) %}
+      {% if diff %}<span class="pill warn">{{ diff }}</span>{% endif %}</a>
+    <a href="{{ url_for('rejections_page') }}" class="{{ 'active' if request.endpoint == 'rejections_page' }}">退单处理</a>
+    <a href="{{ url_for('settings_page') }}" class="{{ 'active' if request.endpoint == 'settings_page' }}">设置</a>
+  </nav>
+  <div class="side-stats">
+    <div><span>{{ counts.get('total', 0) }}</span> 总单据</div>
+    <div><span>{{ counts.get('submitted', 0) + counts.get('verified', 0) + counts.get('verified_mismatch', 0) }}</span> 已申报</div>
+    <div><span>{{ counts.get('needs_fix', 0) }}</span> 待修正</div>
+  </div>
+  <a class="mock-link" href="{{ mock_url | default('#') }}" target="_blank" rel="noopener">打开申报系统 ↗</a>
+</aside>
+<main>
+  <header class="page-head">
+    {% block page_head %}{% endblock %}
+  </header>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flashes">
+      {% for cat, msg in messages %}<div class="alert {{ cat }}">{{ msg }}</div>{% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+{% block scripts %}{% endblock %}
+</body>
+</html>

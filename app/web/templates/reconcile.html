@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}核对差异 · 报关单自动录入{% endblock %}
+{% block page_head %}
+  <div>
+    <h1>核对差异</h1>
+    <div class="sub">申报完成后回读系统数据，与源单逐字段比对。差异只标记，不自动改单。</div>
+  </div>
+  <div class="toolbar">
+    <a class="btn" href="{{ url_for('reconcile_page', only_diff='1' if not only_diff else '0') }}">
+      {{ '显示全部' if only_diff else '仅看有差异' }}</a>
+    <a class="btn" href="{{ url_for('reconcile_export') }}">导出 Excel</a>
+  </div>
+{% endblock %}
+{% block content %}
+
+{% if rows %}
+{% for entry in rows %}
+  {% set d = entry.row %}
+  {% set c = entry.compare %}
+  <section class="panel">
+    <div class="panel-head">
+      <h2>
+        <a class="mono" href="{{ url_for('document_detail', doc_id=d['id']) }}">{{ d['external_ref'] }}</a>
+        <span class="mono-small muted">{{ d['declaration_no'] or '' }}</span>
+        {% if c.matched %}<span class="badge verified">核对一致</span>
+        {% else %}<span class="badge rejected">{{ entry.diff_count }} 处差异</span>{% endif %}
+      </h2>
+      <div class="toolbar">
+        {% if not c.matched %}
+        <form method="post" action="{{ url_for('reconcile_recheck', doc_id=d['id']) }}">
+          <button class="btn small">重新回读</button>
+        </form>
+        {% endif %}
+        <a class="btn small" href="{{ url_for('document_detail', doc_id=d['id']) }}">单据详情</a>
+      </div>
+    </div>
+    {% if not c.matched %}
+    <table class="grid">
+      <thead><tr><th>范围</th><th>字段</th><th>源单（应为）</th><th>系统（实际）</th></tr></thead>
+      <tbody>
+      {% for diff in c.differences %}
+        <tr>
+          <td>{% if diff.scope == 'header' %}表头{% else %}项{{ diff.item_no }}{% endif %}</td>
+          <td>{{ diff.label }}</td>
+          <td class="ok-cell">{{ diff.expected or '（空）' }}</td>
+          <td><span class="problem-cell">{{ diff.actual or '（空）' }}</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="muted">核对 {{ c.checked_fields }} 个字段，全部一致。</div>
+    {% endif %}
+    {% if not c.matched and d['status'] == 'verified_mismatch' %}
+    <div class="alert warning" style="margin-top:10px">
+      该票系统已受理，<b>不能直接重录</b>（会造成重复申报）。正确做法：在申报系统对原单做
+      更改/作废并取得回执，由报关员在此确认后才能在待录队列中重新申报。
+    </div>
+    {% endif %}
+  </section>
+{% endfor %}
+{% else %}
+<section class="panel"><div class="no-data">还没有已完成回读核对的申报单。</div></section>
+{% endif %}
+{% endblock %}
