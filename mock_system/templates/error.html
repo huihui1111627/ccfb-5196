@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} · 报关申报系统{% endblock %}
+{% block body %}
+<main class="page narrow">
+  <div class="card"><h2>{{ code }}</h2><p>{{ message }}</p><a class="btn" href="{{ url_for('index') }}">返回首页</a></div>
+</main>
+{% endblock %}

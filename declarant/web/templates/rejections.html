@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}退单处理 · 报关自动录入{% endblock %}
+{% block heading %}退单处理{% endblock %}
+{% block content %}
+<div class="cards tight">
+  <div class="card metric warn"><span>待处理</span><b>{{ counts.get('open', 0) }}</b><small>需修改后重录</small></div>
+  <div class="card metric good"><span>已处理</span><b>{{ counts.get('resolved', 0) }}</b></div>
+  {% for cat, n in cats.items() %}
+  <div class="card metric"><span>{{ category_labels.get(cat, cat) }}</span><b>{{ n }}</b></div>
+  {% endfor %}
+</div>
+
+<section class="card">
+  <div class="card-head">
+    <h2>退单队列</h2>
+    <div class="filter">
+      <a class="btn sm {{ 'primary' if status == 'open' }}" href="{{ url_for('rejections_page', status='open') }}">待处理</a>
+      <a class="btn sm {{ 'primary' if status == 'resolved' }}" href="{{ url_for('rejections_page', status='resolved') }}">已处理</a>
+      <a class="btn sm {{ 'primary' if status == '' }}" href="{{ url_for('rejections_page', status='') }}">全部</a>
+    </div>
+  </div>
+  <table class="table">
+    <thead><tr><th>#</th><th>发票号</th><th>报关单号</th><th>分类</th><th>退单原因</th><th>定位字段</th><th>建议</th><th>状态</th><th>操作</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td>{{ r['id'] }}</td>
+        <td><a class="link" href="{{ url_for('declaration_detail', decl_id=r['declaration_id']) }}">{{ r['invoice_no'] }}</a></td>
+        <td class="mono small">{{ r['decl_no'] or '—' }}</td>
+        <td><span class="pill cat-{{ r['category'] }}">{{ category_labels.get(r['category'], r['category']) }}</span></td>
+        <td class="reason">{{ r['raw_reason'] }}</td>
+        <td class="mono small">{{ r['field_path'] or '—' }}{% if r['item_seq'] %}（第{{ r['item_seq'] }}项）{% endif %}</td>
+        <td class="small muted">{{ r['suggestion'] }}</td>
+        <td>{% if r['status'] == 'resolved' %}<span class="pill ok">已处理</span>{% else %}<span class="pill diff">待处理</span>{% endif %}</td>
+        <td class="row-actions">
+          {% if r['status'] == 'open' %}
+          <form method="post" action="{{ url_for('rejection_repair', rej_id=r['id']) }}">
+            <button class="btn sm primary" title="按退单原因自动修正可推导字段">自动修复并重录</button>
+          </form>
+          <a class="btn sm" href="{{ url_for('declaration_edit', decl_id=r['declaration_id']) }}">手工修改</a>
+          <form method="post" action="{{ url_for('rejection_resolve', rej_id=r['id'], status=request.args.get('status','open')) }}">
+            <button class="btn sm">标为已处理</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('rejection_requeue', rej_id=r['id']) }}">
+            <button class="btn sm">重新排队</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}<tr><td colspan="9" class="empty">暂无退单记录</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

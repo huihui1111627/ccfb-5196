@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}设置 · 报关自动录入{% endblock %}
+{% block heading %}设置{% endblock %}
+{% block content %}
+<div class="grid2">
+  <section class="card">
+    <div class="card-head"><h2>申报系统连接</h2></div>
+    <form method="post" class="stack-form">
+      <input type="hidden" name="section" value="mock">
+      <label class="field"><span>Mock 申报系统地址</span>
+        <input name="mock_base_url" value="{{ values.mock_base_url }}"></label>
+      <label class="field"><span>登录账号</span>
+        <input name="mock_username" value="{{ values.mock_username }}"></label>
+      <label class="field"><span>登录密码（留空则不修改）</span>
+        <input name="mock_password" type="password" placeholder="••••••"></label>
+      <div class="form-actions">
+        <button class="btn btn-primary">保存连接设置</button>
+        <button class="btn" type="button" id="test-conn">测试连接</button>
+        <span id="conn-result" class="small"></span>
+      </div>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>录入进程</h2></div>
+    <form method="post" class="stack-form">
+      <input type="hidden" name="section" value="worker">
+      <label class="field"><span>无头浏览器（不显示界面更快）</span>
+        <select name="headless">
+          <option value="1" {{ 'selected' if values.headless }}>是</option>
+          <option value="0" {{ 'selected' if not values.headless }}>否（可观察操作过程）</option>
+        </select></label>
+      <label class="field"><span>队列轮询间隔（秒）</span>
+        <input name="poll_seconds" value="{{ values.poll_seconds }}"></label>
+      <label class="field"><span>并发会话数（建议 1，避免重复操作）</span>
+        <input name="worker_concurrency" value="{{ values.worker_concurrency }}"></label>
+      <div class="form-actions"><button class="btn btn-primary">保存进程设置</button></div>
+    </form>
+  </section>
+</div>
+
+<section class="card">
+  <div class="card-head"><h2>演练设置</h2><span class="muted small">仅影响本地 Mock 申报系统的审核行为</span></div>
+  <form method="post" class="stack-form">
+    <input type="hidden" name="section" value="mocktest">
+    <label class="field" style="max-width:260px"><span>退单模拟概率（0 - 1）</span>
+      <input name="reject_rate" value="{{ values.mock_reject_rate }}"></label>
+    <div class="form-actions"><button class="btn btn-primary">应用并同步到 Mock</button>
+      <span class="muted small">首次提交按此概率退单；退单后重新申报仅 2% 概率再次退单</span></div>
+  </form>
+</section>
+
+<section class="card">
+  <div class="card-head"><h2>当前配置</h2></div>
+  <table class="table">
+    <thead><tr><th>键</th><th>值</th><th>说明</th><th>更新时间</th></tr></thead>
+    <tbody>
+    {% for s in settings_rows %}
+      <tr><td class="mono">{{ s['key'] }}</td><td class="mono small">{{ s['value'] }}</td>
+        <td class="small">{{ s['description'] }}</td><td class="mono small">{{ s['updated_at'] }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <div class="card-head"><h2>数据与文件</h2></div>
+  <dl class="kv">
+    <dt>数据库</dt><dd class="mono small">{{ settings.get('db_path', '') }}</dd>
+    <dt>截图目录</dt><dd class="mono small">{{ settings.get('screenshots', '') }}</dd>
+    <dt>测试数据</dt><dd>samples/ 目录下的 Excel / PDF 发票</dd>
+  </dl>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('test-conn').addEventListener('click', function () {
+  var el = document.getElementById('conn-result');
+  el.textContent = '连接中…';
+  el.className = 'small muted';
+  fetch('/settings/test-connection', { method: 'POST' })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      el.textContent = d.message;
+      el.className = 'small ' + (d.ok ? 'good-text' : 'bad-text');
+    }).catch(function (e) { el.textContent = '请求失败：' + e; el.className = 'small bad-text'; });
+});
+</script>
+{% endblock %}

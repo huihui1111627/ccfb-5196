@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}表头录入 · 报关申报系统{% endblock %}
+{% block body %}
+<main class="page">
+  <div class="page-head">
+    <h2>表头录入 <span class="muted">#{{ decl['id'] }} · {{ decl['client_ref'] }}</span></h2>
+    <a class="btn" href="{{ url_for('declaration_detail', decl_id=decl['id']) }}">返回详情</a>
+  </div>
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+  {% if decl['status'] == 'rejected' %}<div class="alert alert-warn">该单已被退单：{{ decl['reject_reason'] }}，修改后可重新申报。</div>{% endif %}
+  <form method="post" class="card" id="header-form" autocomplete="off">
+    <div class="section-title">基本信息</div>
+    <div class="form-grid">
+      <label class="field"><span>贸易方式 <i>*</i></span>
+        <select name="trade_mode" id="trade_mode">
+          <option value="">请选择贸易方式</option>
+          {% for m in trade_modes %}
+          <option value="{{ m.code }}" {% if (header.get('trade_mode') or decl['trade_mode']) == m.code %}selected{% endif %}>{{ m.code }} {{ m.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="field readonly-field"><span>监管方式（自动带出）</span>
+        <div class="readonly" id="mode-nature">{{ header.get('nature', '') or '—' }}</div>
+      </div>
+      <div class="field readonly-field"><span>征免性质（自动带出）</span>
+        <div class="readonly" id="mode-duty">{{ header.get('duty_mode', '') or '—' }}</div>
+      </div>
+      <label class="field"><span>发票号 <i>*</i></span>
+        <input name="invoice_no" id="invoice_no" value="{{ header.get('invoice_no', decl['invoice_no']) }}">
+      </label>
+      <label class="field"><span>合同协议号</span>
+        <input name="contract_no" id="contract_no" value="{{ header.get('contract_no', '') }}">
+      </label>
+      <label class="field"><span>申报地海关 <i>*</i></span>
+        <select name="port_code" id="port_code">
+          <option value="">请选择</option>
+          {% for code, name in ports.items() %}<option value="{{ code }}" {% if header.get('port_code')==code %}selected{% endif %}>{{ code }} {{ name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="field"><span>运输方式 <i>*</i></span>
+        <select name="transport_mode" id="transport_mode">
+          <option value="">请选择</option>
+          {% for code, name in transport_modes.items() %}<option value="{{ code }}" {% if header.get('transport_mode')==code %}selected{% endif %}>{{ code }} {{ name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="field"><span>运输工具 / 航次</span>
+        <input name="vessel_voyage" id="vessel_voyage" value="{{ header.get('vessel_voyage', '') }}">
+      </label>
+      <label class="field"><span>贸易国（地区） <i>*</i></span>
+        <select name="trade_country" id="trade_country">
+          <option value="">请选择</option>
+          {% for code, name in countries.items() %}<option value="{{ code }}" {% if header.get('trade_country')==code %}selected{% endif %}>{{ code }} {{ name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="field"><span>运抵国（地区）</span>
+        <select name="dest_country" id="dest_country">
+          <option value="">请选择</option>
+          {% for code, name in countries.items() %}<option value="{{ code }}" {% if header.get('dest_country')==code %}selected{% endif %}>{{ code }} {{ name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="field"><span>币制 <i>*</i></span>
+        <select name="currency" id="currency">
+          {% for code, meta in currencies.items() %}<option value="{{ code }}" {% if (header.get('currency') or 'USD')==code %}selected{% endif %}>{{ code }} {{ meta.label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="field"><span>结汇汇率</span>
+        <input name="exchange_rate" id="exchange_rate" type="number" step="0.0001" value="{{ header.get('exchange_rate', '7.12') }}">
+      </label>
+      <label class="field"><span>包装件数</span>
+        <input name="package_count" id="package_count" type="number" min="0" value="{{ header.get('package_count', '') }}">
+      </label>
+      <label class="field"><span>包装种类</span>
+        <select name="packing_type" id="packing_type">
+          <option value="">请选择</option>
+          {% for code, name in packing_types.items() %}<option value="{{ code }}" {% if header.get('packing_type')==code %}selected{% endif %}>{{ code }} {{ name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="field"><span>毛重(千克)</span>
+        <input name="gross_weight" id="gross_weight" type="number" step="0.001" value="{{ header.get('gross_weight', '') }}">
+      </label>
+      <label class="field"><span>净重(千克)</span>
+        <input name="net_weight" id="net_weight" type="number" step="0.001" value="{{ header.get('net_weight', '') }}">
+      </label>
+      <label class="field span2"><span>境内收发货人</span>
+        <input name="consignee" id="consignee" value="{{ header.get('consignee', '') }}">
+      </label>
+      <label class="field span2"><span>境外收发货人</span>
+        <input name="consignor" id="consignor" value="{{ header.get('consignor', '') }}">
+      </label>
+    </div>
+    <div id="linked-panel" class="linked-panel hidden">
+      <div class="section-title">贸易方式联动信息 <span class="tag" id="linked-mode-label"></span></div>
+      <div class="form-grid" id="linked-fields"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit" id="save-header">保存表头</button>
+      <a class="btn" href="{{ url_for('items_page', decl_id=decl['id']) }}">去录商品明细</a>
+    </div>
+  </form>
+</main>
+{% endblock %}
+{% block scripts %}
+<script>window.__HEADER_VALUES__ = {{ header|tojson }};</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% endblock %}

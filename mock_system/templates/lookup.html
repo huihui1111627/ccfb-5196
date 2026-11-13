@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}单号查询 · 报关申报系统{% endblock %}
+{% block body %}
+<main class="page">
+  <div class="page-head"><h2>单号查询</h2></div>
+  <form class="filterbar" method="get">
+    <input name="ref" value="{{ ref }}" placeholder="客户参考号 / 发票号 / 报关单号">
+    <button class="btn" type="submit">查询</button>
+  </form>
+  {% if result %}<script type="application/json" id="lookup-result">{{ result_json|safe }}</script>{% endif %}
+  <table class="grid">
+    <thead><tr><th>报关单号</th><th>客户参考号</th><th>发票号</th><th>状态</th><th>项数</th><th>提交时间</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr><td class="mono">{{ r['decl_no'] or '—' }}</td><td class="mono">{{ r['client_ref'] }}</td><td>{{ r['invoice_no'] }}</td>
+      <td><a class="link" href="{{ url_for('declaration_detail', decl_id=r['id']) }}">{{ r['status'] }}</a></td><td>{{ r['item_count'] }}</td><td class="mono small">{{ r['submitted_at'] or '' }}</td></tr>
+    {% else %}<tr><td colspan="6" class="empty">{% if ref %}未找到相关记录{% else %}请输入要查询的编号{% endif %}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</main>
+{% endblock %}

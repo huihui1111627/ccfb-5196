@@ -1,0 +1,320 @@
+{
+  "version": "2026.11",
+  "generated_on": "2026-11-13",
+  "currencies": {
+    "USD": {"label": "美元", "rate": 7.12},
+    "EUR": {"label": "欧元", "rate": 7.75},
+    "JPY": {"label": "日元", "rate": 0.047},
+    "CNY": {"label": "人民币", "rate": 1.0}
+  },
+  "countries": {
+    "JPN": "日本",
+    "DEU": "德国",
+    "USA": "美国",
+    "ITA": "意大利",
+    "FRA": "法国",
+    "GBR": "英国",
+    "KOR": "韩国",
+    "VNM": "越南",
+    "CHN": "中国"
+  },
+  "ports": {
+    "2201": "上海洋山港",
+    "2210": "上海外高桥港",
+    "3100": "宁波北仑港",
+    "5300": "深圳盐田港",
+    "0101": "北京首都机场",
+    "4701": "广州白云机场",
+    "2900": "苏州工业园综合保税区"
+  },
+  "transport_modes": {
+    "WATER": "水路运输",
+    "AIR": "航空运输",
+    "RAIL": "铁路运输",
+    "ROAD": "公路运输"
+  },
+  "trade_terms": {
+    "CIF": "CIF",
+    "FOB": "FOB",
+    "CFR": "CFR",
+    "EXW": "EXW"
+  },
+  "packing_types": {
+    "CARTON": "纸箱",
+    "WOODEN": "木箱",
+    "PALLET": "托盘",
+    "BAG": "袋装",
+    "DRUM": "桶装"
+  },
+  "units": {
+    "台": "台",
+    "个": "个",
+    "千克": "千克",
+    "米": "米",
+    "双": "双",
+    "箱": "箱",
+    "瓶": "瓶",
+    "套": "套",
+    "件": "件",
+    "辆": "辆",
+    "吨": "吨",
+    "升": "升",
+    "套件": "套件"
+  },
+  "duty_modes": {
+    "照章征税": "照章征税",
+    "全免": "全免",
+    "折半征税": "折半征税",
+    "保证金": "保证金",
+    "保函": "保函"
+  },
+  "natures": ["一般征税", "进料加工", "来料加工", "保税仓储", "跨境电子商务", "暂时进出境", "其他"],
+  "trade_modes": [
+    {"code": "0110", "label": "一般贸易", "nature": "一般征税", "duty_mode": "照章征税"},
+    {"code": "0615", "label": "进料对口", "nature": "进料加工", "duty_mode": "全免"},
+    {"code": "0214", "label": "来料加工", "nature": "来料加工", "duty_mode": "全免"},
+    {"code": "1200", "label": "保税仓储货物", "nature": "保税仓储", "duty_mode": "全免"},
+    {"code": "1210", "label": "保税电商", "nature": "跨境电子商务", "duty_mode": "照章征税"},
+    {"code": "2600", "label": "暂时进出境货物", "nature": "暂时进出境", "duty_mode": "保证金"},
+    {"code": "4561", "label": "退运货物", "nature": "其他", "duty_mode": "全免"},
+    {"code": "1523", "label": "租赁贸易", "nature": "一般征税", "duty_mode": "照章征税"}
+  ],
+  "hs_codes": {
+    "8471300000": {
+      "name": "便携式自动数据处理设备",
+      "legal_unit": "台",
+      "second_unit": null,
+      "elements": [
+        {"key": "brand_type", "label": "品牌类型", "kind": "select", "required": true,
+         "options": ["无品牌", "境内自主品牌", "境内收购品牌", "境外品牌(贴牌生产)", "境外品牌(其他)"]},
+        {"key": "export_benefit", "label": "出口享惠情况", "kind": "select", "required": true,
+         "options": ["出口货物在最终目的国不享受优惠关税", "出口货物在最终目的国享受优惠关税"]},
+        {"key": "use", "label": "用途", "kind": "text", "required": true},
+        {"key": "brand", "label": "品牌", "kind": "text", "required": true},
+        {"key": "model", "label": "型号", "kind": "text", "required": true}
+      ]
+    },
+    "8517130000": {
+      "name": "智能手机",
+      "legal_unit": "台",
+      "second_unit": null,
+      "elements": [
+        {"key": "brand_type", "label": "品牌类型", "kind": "select", "required": true,
+         "options": ["无品牌", "境内自主品牌", "境内收购品牌", "境外品牌(贴牌生产)", "境外品牌(其他)"]},
+        {"key": "export_benefit", "label": "出口享惠情况", "kind": "select", "required": true,
+         "options": ["出口货物在最终目的国不享受优惠关税", "出口货物在最终目的国享受优惠关税"]},
+        {"key": "use", "label": "用途", "kind": "text", "required": true},
+        {"key": "brand", "label": "品牌", "kind": "text", "required": true},
+        {"key": "model", "label": "型号", "kind": "text", "required": true},
+        {"key": "screen_size", "label": "屏幕尺寸", "kind": "text", "required": false}
+      ]
+    },
+    "8544421900": {
+      "name": "其他电导体",
+      "legal_unit": "米",
+      "second_unit": "千克",
+      "elements": [
+        {"key": "brand_type", "label": "品牌类型", "kind": "select", "required": true,
+         "options": ["无品牌", "境内自主品牌", "境内收购品牌", "境外品牌(贴牌生产)", "境外品牌(其他)"]},
+        {"key": "export_benefit", "label": "出口享惠情况", "kind": "select", "required": true,
+         "options": ["出口货物在最终目的国不享受优惠关税", "出口货物在最终目的国享受优惠关税"]},
+        {"key": "use", "label": "用途", "kind": "text", "required": true},
+        {"key": "conductor", "label": "导体材质", "kind": "text", "required": true},
+        {"key": "insulation", "label": "绝缘材质", "kind": "text", "required": true},
+        {"key": "model", "label": "型号", "kind": "text", "required": true}
+      ]
+    },
+    "3926909090": {
+      "name": "其他塑料制品",
+      "legal_unit": "千克",
+      "second_unit": null,
+      "elements": [
+        {"key": "brand_type", "label": "品牌类型", "kind": "select", "required": true,
+         "options": ["无品牌", "境内自主品牌", "境内收购品牌", "境外品牌(贴牌生产)", "境外品牌(其他)"]},
+        {"key": "use", "label": "用途", "kind": "text", "required": true},
+        {"key": "material", "label": "材质", "kind": "text", "required": true},
+        {"key": "model", "label": "型号", "kind": "text", "required": false}
+      ]
+    },
+    "7326909000": {
+      "name": "其他钢铁制品",
+      "legal_unit": "千克",
+      "second_unit": null,
+      "elements": [
+        {"key": "brand_type", "label": "品牌类型", "kind": "select", "required": true,
+         "options": ["无品牌", "境内自主品牌", "境内收购品牌", "境外品牌(贴牌生产)", "境外品牌(其他)"]},
+        {"key": "use", "label": "用途", "kind": "text", "required": true},
+        {"key": "material", "label": "材质", "kind": "text", "required": true},
+        {"key": "spec", "label": "规格", "kind": "text", "required": true}
+      ]
+    },
+    "9031809090": {
+      "name": "其他测量或检验仪器",
+      "legal_unit": "台",
+      "second_unit": null,
+      "elements": [
+        {"key": "brand_type", "label": "品牌类型", "kind": "select", "required": true,
+         "options": ["无品牌", "境内自主品牌", "境内收购品牌", "境外品牌(贴牌生产)", "境外品牌(其他)"]},
+        {"key": "use", "label": "用途", "kind": "text", "required": true},
+        {"key": "principle", "label": "工作原理", "kind": "text", "required": true},
+        {"key": "model", "label": "型号", "kind": "text", "required": true}
+      ]
+    },
+    "8504401400": {
+      "name": "电源适配器",
+      "legal_unit": "个",
+      "second_unit": null,
+      "elements": [
+        {"key": "brand_type", "label": "品牌类型", "kind": "select", "required": true,
+         "options": ["无品牌", "境内自主品牌", "境内收购品牌", "境外品牌(贴牌生产)", "境外品牌(其他)"]},
+        {"key": "use", "label": "用途", "kind": "text", "required": true},
+        {"key": "power", "label": "输出功率", "kind": "text", "required": true},
+        {"key": "model", "label": "型号", "kind": "text", "required": true}
+      ]
+    },
+    "6403990090": {
+      "name": "其他皮鞋",
+      "legal_unit": "双",
+      "second_unit": null,
+      "elements": [
+        {"key": "brand_type", "label": "品牌类型", "kind": "select", "required": true,
+         "options": ["无品牌", "境内自主品牌", "境内收购品牌", "境外品牌(贴牌生产)", "境外品牌(其他)"]},
+        {"key": "use", "label": "用途", "kind": "text", "required": true},
+        {"key": "upper", "label": "鞋面材质", "kind": "text", "required": true},
+        {"key": "sole", "label": "鞋底材质", "kind": "text", "required": true},
+        {"key": "model", "label": "型号", "kind": "text", "required": true}
+      ]
+    },
+    "0902300000": {
+      "name": "小包装红茶",
+      "legal_unit": "千克",
+      "second_unit": null,
+      "elements": [
+        {"key": "brand_type", "label": "品牌类型", "kind": "select", "required": true,
+         "options": ["无品牌", "境内自主品牌", "境内收购品牌", "境外品牌(贴牌生产)", "境外品牌(其他)"]},
+        {"key": "use", "label": "用途", "kind": "text", "required": true},
+        {"key": "origin", "label": "原产地", "kind": "text", "required": true},
+        {"key": "packing_spec", "label": "包装规格", "kind": "text", "required": true}
+      ]
+    },
+    "2204210000": {
+      "name": "小包装葡萄酒",
+      "legal_unit": "瓶",
+      "second_unit": "升",
+      "elements": [
+        {"key": "brand_type", "label": "品牌类型", "kind": "select", "required": true,
+         "options": ["无品牌", "境内自主品牌", "境内收购品牌", "境外品牌(贴牌生产)", "境外品牌(其他)"]},
+        {"key": "use", "label": "用途", "kind": "text", "required": true},
+        {"key": "alcohol", "label": "酒精浓度", "kind": "text", "required": true},
+        {"key": "volume", "label": "包装规格(升)", "kind": "text", "required": true}
+      ]
+    },
+    "9403200000": {
+      "name": "其他金属家具",
+      "legal_unit": "件",
+      "second_unit": null,
+      "elements": [
+        {"key": "brand_type", "label": "品牌类型", "kind": "select", "required": true,
+         "options": ["无品牌", "境内自主品牌", "境内收购品牌", "境外品牌(贴牌生产)", "境外品牌(其他)"]},
+        {"key": "use", "label": "用途", "kind": "text", "required": true},
+        {"key": "material", "label": "材质", "kind": "text", "required": true},
+        {"key": "model", "label": "型号", "kind": "text", "required": false}
+      ]
+    }
+  },
+  "products": [
+    {
+      "sku": "NB-T14", "name": "笔记本电脑", "hs_code": "8471300000", "unit": "台",
+      "spec": "14英寸/16G/512G", "origin_country": "JPN", "brand": "Lenovo", "model": "ThinkPad T14",
+      "elements": {
+        "brand_type": "境外品牌(其他)", "export_benefit": "出口货物在最终目的国不享受优惠关税",
+        "use": "办公使用", "brand": "Lenovo", "model": "ThinkPad T14"
+      },
+      "legal_qty_per_unit": 1
+    },
+    {
+      "sku": "PH-X9", "name": "智能手机", "hs_code": "8517130000", "unit": "台",
+      "spec": "6.7英寸/256G", "origin_country": "KOR", "brand": "Samsung", "model": "Galaxy S26",
+      "elements": {
+        "brand_type": "境外品牌(其他)", "export_benefit": "出口货物在最终目的国不享受优惠关税",
+        "use": "通讯", "brand": "Samsung", "model": "Galaxy S26", "screen_size": "6.7英寸"
+      },
+      "legal_qty_per_unit": 1
+    },
+    {
+      "sku": "CB-USBC", "name": "USB-C数据线", "hs_code": "8544421900", "unit": "米",
+      "spec": "1.5米/编织", "origin_country": "VNM", "brand": "Anker", "model": "A8853",
+      "elements": {
+        "brand_type": "境外品牌(其他)", "export_benefit": "出口货物在最终目的国不享受优惠关税",
+        "use": "数据连接", "conductor": "铜", "insulation": "TPE", "model": "A8853"
+      },
+      "legal_qty_per_unit": 1,
+      "second_qty_per_unit": 0.035
+    },
+    {
+      "sku": "PL-CASE", "name": "塑料外壳", "hs_code": "3926909090", "unit": "千克",
+      "spec": "ABS注塑件", "origin_country": "DEU", "brand": "无品牌", "model": "PC-100",
+      "elements": {
+        "brand_type": "无品牌", "use": "电子设备外壳", "material": "ABS", "model": "PC-100"
+      },
+      "legal_qty_per_unit": 1
+    },
+    {
+      "sku": "ST-BRKT", "name": "钢铁支架", "hs_code": "7326909000", "unit": "千克",
+      "spec": "冷轧钢板", "origin_country": "DEU", "brand": "无品牌", "model": "BR-40",
+      "elements": {
+        "brand_type": "无品牌", "use": "设备安装", "material": "冷轧钢", "spec": "40×40×3mm"
+      },
+      "legal_qty_per_unit": 1
+    },
+    {
+      "sku": "IN-TEST", "name": "便携式检测仪", "hs_code": "9031809090", "unit": "台",
+      "spec": "手持式", "origin_country": "USA", "brand": "Fluke", "model": "FX-500",
+      "elements": {
+        "brand_type": "境外品牌(其他)", "use": "工业检测", "principle": "红外测温", "model": "FX-500"
+      },
+      "legal_qty_per_unit": 1
+    },
+    {
+      "sku": "PW-65W", "name": "电源适配器", "hs_code": "8504401400", "unit": "个",
+      "spec": "65W", "origin_country": "VNM", "brand": "Lenovo", "model": "AD-65",
+      "elements": {
+        "brand_type": "境外品牌(其他)", "use": "笔记本电脑供电", "power": "65W", "model": "AD-65"
+      },
+      "legal_qty_per_unit": 1
+    },
+    {
+      "sku": "SH-LEATHER", "name": "皮鞋", "hs_code": "6403990090", "unit": "双",
+      "spec": "男式系带", "origin_country": "ITA", "brand": "ECCO", "model": "MX-7",
+      "elements": {
+        "brand_type": "境外品牌(其他)", "use": "穿着", "upper": "牛皮", "sole": "橡胶", "model": "MX-7"
+      },
+      "legal_qty_per_unit": 1
+    },
+    {
+      "sku": "TEA-BLEND", "name": "红茶", "hs_code": "0902300000", "unit": "千克",
+      "spec": "1kg/袋", "origin_country": "GBR", "brand": "Twinings", "model": "TB-100",
+      "elements": {
+        "brand_type": "境外品牌(其他)", "use": "饮用", "origin": "英国", "packing_spec": "1千克/袋"
+      },
+      "legal_qty_per_unit": 1
+    },
+    {
+      "sku": "WINE-RED", "name": "红葡萄酒", "hs_code": "2204210000", "unit": "瓶",
+      "spec": "750ml", "origin_country": "FRA", "brand": "Chateau", "model": "CR-2019",
+      "elements": {
+        "brand_type": "境外品牌(其他)", "use": "饮用", "alcohol": "13.5%vol", "volume": "0.75升"
+      },
+      "legal_qty_per_unit": 1,
+      "second_qty_per_unit": 0.75
+    },
+    {
+      "sku": "FUR-TABLE", "name": "金属餐桌", "hs_code": "9403200000", "unit": "件",
+      "spec": "1.4米", "origin_country": "ITA", "brand": "Kartell", "model": "KT-140",
+      "elements": {
+        "brand_type": "境外品牌(其他)", "use": "室内家具", "material": "不锈钢", "model": "KT-140"
+      },
+      "legal_qty_per_unit": 1
+    }
+  ]
+}

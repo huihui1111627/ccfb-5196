@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}待录队列 · 报关自动录入{% endblock %}
+{% block heading %}待录队列{% endblock %}
+{% block actions %}
+<form class="inline" onsubmit="return false">
+  <label class="btn file-btn">选择 Excel / PDF<input type="file" id="import-files" multiple accept=".xlsx,.xls,.xlsm,.pdf" hidden></label>
+</form>
+<span id="import-selected" class="muted"></span>
+{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="card-head">
+    <h2>导入发票</h2>
+    <span class="muted small">支持一次多选；同一发票重复导入会自动跳过并计入统计</span>
+  </div>
+  <form id="import-form" method="post" action="{{ url_for('do_import') }}" enctype="multipart/form-data" class="dropzone" data-drop="1">
+    <input type="file" name="files" id="files" multiple accept=".xlsx,.xls,.xlsm,.pdf" hidden>
+    <div class="dz-inner">
+      <p class="dz-title">拖拽文件到此处，或 <button type="button" class="link" id="pick-file">点击选择</button></p>
+      <p class="muted small">Excel：每个工作表可作为一张发票，含多张发票时会自动拆分；PDF：按页解析表格</p>
+      <ul class="file-list" id="file-list"></ul>
+    </div>
+    <div class="dz-actions"><button class="btn btn-primary" type="submit" id="import-submit">开始导入</button></div>
+  </form>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>队列</h2>
+    <form class="filter" method="get">
+      <input name="q" value="{{ q }}" placeholder="发票号 / 合同号 / 客户参考号">
+      <select name="status">
+        <option value="">待处理</option>
+        {% for k, v in status_labels.items() %}<option value="{{ k }}" {{ 'selected' if status == k }}>{{ v }}（{{ counts.get(k,0) }}）</option>{% endfor %}
+      </select>
+      <button class="btn" type="submit">筛选</button>
+    </form>
+  </div>
+  <table class="table">
+    <thead><tr><th>ID</th><th>发票号</th><th>贸易方式</th><th>来源</th><th>项数</th><th>状态</th><th>提示</th><th>更新时间</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td class="mono small">{{ r['id'] }}</td>
+        <td><a class="link" href="{{ url_for('declaration_detail', decl_id=r['id']) }}">{{ r['invoice_no'] }}</a></td>
+        <td><span class="mono">{{ r['trade_mode'] }}</span></td>
+        <td class="small">{{ r['source_kind'] }}{% if r['source_page'] %} p.{{ r['source_page'] }}{% endif %}</td>
+        <td>{{ r['item_count'] }}</td>
+        <td><span class="pill s-{{ r['status'] }}">{{ status_label(r['status']) }}</span></td>
+        <td class="small">
+          {% set issues = r['error_reason']|fromjson if r['error_reason'] else [] %}
+          {% if issues %}
+            {% for i in issues[:2] %}<div class="issue-{{ i.severity }}">{{ i.message }}</div>{% endfor %}
+            {% if issues|length > 2 %}<div class="muted">… 共 {{ issues|length }} 条</div>{% endif %}
+          {% else %}—{% endif %}
+        </td>
+        <td class="mono small">{{ r['updated_at'] }}</td>
+        <td class="row-actions">
+          {% if r['status'] in ('hold', 'abnormal') %}
+          <a class="btn sm" href="{{ url_for('declaration_edit', decl_id=r['id']) }}">修正</a>
+          {% endif %}
+          {% if r['status'] in ('validated', 'queued') %}
+          <form method="post" action="{{ url_for('worker_start') }}">
+            <input type="hidden" name="mode" value="single"><input type="hidden" name="decl_id" value="{{ r['id'] }}">
+            <button class="btn sm primary">录入</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="9" class="empty">队列为空。导入发票后会出现在这里。</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <div class="card-head"><h2>导入批次</h2></div>
+  <table class="table">
+    <thead><tr><th>#</th><th>文件</th><th>类型</th><th>状态</th><th>解析</th><th>新建</th><th>重复跳过</th><th>校验未通过</th><th>时间</th></tr></thead>
+    <tbody>
+    {% for b in batches %}
+      <tr>
+        <td>{{ b['id'] }}</td>
+        <td><a class="link" href="{{ url_for('import_report', batch_id=b['id']) }}">{{ b['filename'] }}</a></td>
+        <td>{{ b['kind'] }}</td><td>{{ b['status'] }}</td><td>{{ b['total_rows'] }}</td>
+        <td>{{ b['imported_rows'] }}</td><td>{{ b['skipped_rows'] }}</td><td>{{ b['error_rows'] }}</td>
+        <td class="mono small">{{ b['created_at'] }}</td>
+      </tr>
+    {% else %}<tr><td colspan="9" class="empty">暂无</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var input = document.getElementById('files');
+  var list = document.getElementById('file-list');
+  var dz = document.querySelector('.dropzone');
+  function render(files) {
+    list.innerHTML = '';
+    Array.prototype.forEach.call(files, function (f) {
+      var li = document.createElement('li');
+      li.textContent = f.name + '  (' + (f.size / 1024).toFixed(1) + ' KB)';
+      list.appendChild(li);
+    });
+  }
+  document.getElementById('pick-file').addEventListener('click', function () { input.click(); });
+  input.addEventListener('change', function () { render(input.files); });
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add('dragging'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.remove('dragging'); });
+  });
+  dz.addEventListener('drop', function (e) {
+    if (e.dataTransfer && e.dataTransfer.files.length) { input.files = e.dataTransfer.files; render(input.files); }
+  });
+})();
+</script>
+{% endblock %}

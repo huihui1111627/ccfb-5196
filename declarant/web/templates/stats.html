@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}统计报表 · 报关自动录入{% endblock %}
+{% block heading %}统计报表{% endblock %}
+{% block actions %}
+<a class="btn" href="{{ url_for('export_stats') }}">导出 Excel</a>
+{% endblock %}
+{% block content %}
+<div class="cards tight">
+  {% set tp = series|sum(attribute='approved_count') %}
+  {% set tr = series|sum(attribute='rejected_count') %}
+  <div class="card metric"><span>累计导入</span><b>{{ series|sum(attribute='imported_count') }}</b></div>
+  <div class="card metric good"><span>累计通过</span><b>{{ tp }}</b></div>
+  <div class="card metric warn"><span>累计退单</span><b>{{ tr }}</b></div>
+  <div class="card metric"><span>总体成功率</span><b>{{ ((tp / (tp + tr)) * 100)|round(1) if (tp + tr) else 0 }}%</b></div>
+</div>
+
+<section class="card">
+  <div class="card-head"><h2>近 {{ series|length }} 天录入量与成功率</h2>
+    <span class="muted small">成功率 = 审核通过 /（审核通过 + 退单）</span></div>
+  {% if series %}
+  {% set maxa = series|map(attribute='approved_count')|max %}
+  {% set maxr = series|map(attribute='rejected_count')|max %}
+  {% set maxv = (maxa + maxr) or 1 %}
+  <div class="chart">
+    {% for d in series %}
+    {% set total = d.approved_count + d.rejected_count %}
+    {% set rate = ((d.approved_count / total) * 100)|round(1) if total else 0 %}
+    <div class="bar-col" title="{{ d.day }} 导入{{ d.imported_count }} 通过{{ d.approved_count }} 退单{{ d.rejected_count }}">
+      <div class="bars">
+        <div class="bar ok" style="height: {{ (d.approved_count / maxv * 100)|round(1) }}%"></div>
+        <div class="bar rej" style="height: {{ (d.rejected_count / maxv * 100)|round(1) }}%"></div>
+      </div>
+      <div class="rate">{{ rate }}%</div>
+      <div class="day">{{ d.day[5:] }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="legend"><span class="sw ok"></span>审核通过<span class="sw rej"></span>退单<span class="sw imp"></span>导入</div>
+  {% else %}<p class="empty">暂无统计数据</p>{% endif %}
+</section>
+
+<section class="card">
+  <div class="card-head"><h2>每日明细</h2></div>
+  <table class="table">
+    <thead><tr><th>日期</th><th>导入</th><th>提交</th><th>通过</th><th>退单</th><th>重复拦截</th><th>成功率</th><th></th></tr></thead>
+    <tbody>
+    {% for d in days %}
+      {% set total = d['approved_count'] + d['rejected_count'] %}
+      <tr>
+        <td class="mono">{{ d['day'] }}</td>
+        <td>{{ d['imported_count'] }}</td><td>{{ d['submitted_count'] }}</td>
+        <td class="good-text">{{ d['approved_count'] }}</td>
+        <td class="bad-text">{{ d['rejected_count'] }}</td>
+        <td>{{ d['duplicate_blocked'] }}</td>
+        <td>{{ ((d['approved_count'] / total) * 100)|round(1) if total else '—' }}%</td>
+        <td><a class="link" href="{{ url_for('stats_day', day=d['day']) }}">明细</a></td>
+      </tr>
+    {% else %}<tr><td colspan="8" class="empty">暂无统计</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

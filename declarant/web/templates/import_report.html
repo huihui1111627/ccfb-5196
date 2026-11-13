@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}导入报告 · 报关自动录入{% endblock %}
+{% block heading %}导入报告 · 批次 #{{ batch['id'] }}{% endblock %}
+{% block actions %}<a class="btn" href="{{ url_for('queue') }}">← 返回队列</a>{% endblock %}
+{% block content %}
+<div class="cards tight">
+  <div class="card metric"><span>文件</span><b class="small">{{ batch['filename'] }}</b><small>{{ batch['kind'] }} · {{ batch['status'] }}</small></div>
+  <div class="card metric"><span>解析发票</span><b>{{ batch['total_rows'] }}</b></div>
+  <div class="card metric good"><span>新建</span><b>{{ batch['imported_rows'] }}</b></div>
+  <div class="card metric warn"><span>重复跳过</span><b>{{ batch['skipped_rows'] }}</b><small>未重复建单</small></div>
+  <div class="card metric bad"><span>校验未通过</span><b>{{ batch['error_rows'] }}</b></div>
+</div>
+{% if batch['report'].get('error') %}
+<div class="alert error">解析失败：{{ batch['report']['error'] }}</div>
+{% endif %}
+<section class="card">
+  <div class="card-head"><h2>按发票拆分结果</h2></div>
+  <table class="table">
+    <thead><tr><th>发票号</th><th>来源</th><th>项数</th><th>结果</th><th>校验</th><th>提示</th><th></th></tr></thead>
+    <tbody>
+    {% for inv in batch['report'].get('invoices', []) %}
+      <tr>
+        <td class="mono">{{ inv.invoice_no }}</td>
+        <td class="small">{{ inv.get('sheet') or inv.get('source') }}{% if inv.get('page') %} 第{{ inv.page }}页{% endif %}</td>
+        <td>{{ inv.get('items') or '—' }}</td>
+        <td>
+          {% if inv.status == 'validated' %}<span class="pill ok">已入队</span>
+          {% elif inv.status == 'hold' %}<span class="pill diff">校验未通过</span>
+          {% elif inv.status == 'duplicate' %}<span class="pill warn">重复跳过</span>
+          {% else %}<span class="pill">{{ inv.status }}</span>{% endif %}
+        </td>
+        <td class="small">{% if inv.get('severity') %}错误 {{ inv.severity.error }} / 警告 {{ inv.severity.warning }}{% else %}—{% endif %}</td>
+        <td class="small">
+          {% for i in (inv.get('issues') or [])[:3] %}<div class="issue-{{ i.severity }}">{{ i.message }}</div>{% endfor %}
+          {% if inv.get('message') %}<div class="muted">{{ inv.message }}</div>{% endif %}
+        </td>
+        <td>{% if inv.get('declaration_id') %}<a class="btn sm" href="{{ url_for('declaration_detail', decl_id=inv.declaration_id) }}">查看</a>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

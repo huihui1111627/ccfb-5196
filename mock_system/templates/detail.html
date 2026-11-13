@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}报关单详情 · 报关申报系统{% endblock %}
+{% block body %}
+<main class="page">
+  <div class="page-head">
+    <h2>报关单详情 <span class="muted">#{{ decl['id'] }}</span></h2>
+    <div class="head-actions">
+      {% if decl['status'] in ('draft','rejected') %}
+      <a class="btn" href="{{ url_for('header_edit', decl_id=decl['id']) }}">编辑表头</a>
+      <a class="btn" href="{{ url_for('items_page', decl_id=decl['id']) }}">编辑明细</a>
+      {% endif %}
+      <a class="btn btn-primary" href="{{ url_for('submit_page', decl_id=decl['id']) }}">申报</a>
+    </div>
+  </div>
+  <div class="card">
+    <div class="kv-grid">
+      <div><span>报关单号</span><b class="mono" id="decl-no">{{ decl['decl_no'] or '—' }}</b></div>
+      <div><span>客户参考号</span><b class="mono">{{ decl['client_ref'] }}</b></div>
+      <div><span>状态</span><b>{{ status_label }}</b></div>
+      <div><span>贸易方式</span><b>{{ decl['trade_mode'] }}</b></div>
+      <div><span>发票号</span><b>{{ header.get('invoice_no', decl['invoice_no']) }}</b></div>
+      <div><span>项数</span><b>{{ decl['item_count'] }}</b></div>
+      <div><span>创建时间</span><b class="mono">{{ decl['created_at'] }}</b></div>
+      <div><span>提交时间</span><b class="mono">{{ decl['submitted_at'] or '—' }}</b></div>
+    </div>
+    {% if decl['reject_reason'] %}<div class="alert alert-error">退单原因：{{ decl['reject_reason'] }}</div>{% endif %}
+  </div>
+  <div class="card">
+    <div class="section-title">表头</div>
+    <div class="kv-grid">
+      {% for k, v in header.items() %}
+      {% if k not in ('trade_mode','item_count','nature','duty_mode') %}
+      <div data-field="{{ k }}"><span>{{ header_labels.get(k, k) }}</span><b>{{ v }}</b></div>{% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-title">商品明细</div>
+    <table class="grid">
+      <thead><tr><th data-field="seq_no">项号</th><th data-field="hs_code">HS编码</th>
+        <th data-field="goods_name">商品名称</th><th data-field="specification">规格型号</th>
+        <th data-field="quantity">成交数量</th><th data-field="legal_quantity">法定数量</th>
+        <th data-field="unit_price">单价</th><th data-field="total_price">总价</th>
+        <th data-field="origin_country">原产国</th><th data-field="elements">申报要素</th></tr></thead>
+      <tbody>
+      {% for seq, it in items.items() %}
+      <tr><td data-field="seq_no">{{ seq }}</td><td data-field="hs_code" class="mono">{{ it.get('hs_code') }}</td>
+        <td data-field="goods_name">{{ it.get('goods_name') }}</td>
+        <td data-field="specification">{{ it.get('specification') }}</td>
+        <td data-field="quantity" data-unit="{{ it.get('unit') }}">{{ it.get('quantity') }} {{ it.get('unit') }}</td>
+        <td data-field="legal_quantity" data-unit="{{ it.get('legal_unit') }}">{{ it.get('legal_quantity') }} {{ it.get('legal_unit') }}</td>
+        <td data-field="unit_price">{{ it.get('unit_price') }}</td><td data-field="total_price">{{ it.get('total_price') }}</td>
+        <td data-field="origin_country">{{ it.get('origin_country') }}</td>
+        <td data-field="elements" class="small">
+          {% for k, v in (it.get('elements') or {}).items() %}<span class="el-tag" data-el-key="{{ k }}">{{ k }}={{ v }}</span>{% endfor %}
+        </td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <div class="section-title">审核轨迹</div>
+    <table class="grid">
+      <thead><tr><th>时间</th><th>动作</th><th>结果</th><th>说明</th></tr></thead>
+      <tbody>
+      {% for h in history %}
+      <tr><td class="mono small">{{ h['created_at'] }}</td><td>{{ h['action'] }}</td><td>{{ h['outcome'] or '' }}</td><td>{{ h['reason'] or h['detail'] or '' }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</main>
+{% endblock %}

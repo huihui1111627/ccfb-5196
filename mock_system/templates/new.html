@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}新建报关单 · 报关申报系统{% endblock %}
+{% block body %}
+<main class="page narrow">
+  <div class="page-head"><h2>新建报关单</h2></div>
+  {% if notice %}<div class="alert alert-ok">{{ notice }}</div>{% endif %}
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+  <form method="post" class="card stack" id="new-decl-form">
+    <label class="field"><span>客户参考号 <i>（唯一，重复即拦截）</i></span>
+      <input name="client_ref" id="client_ref" required value="{{ preset_client_ref }}" placeholder="例如 INV-2026-0001">
+    </label>
+    <label class="field"><span>发票号</span>
+      <input name="invoice_no" id="invoice_no" required value="{{ preset_invoice }}" placeholder="例如 CI-2026-0001">
+    </label>
+    <label class="field"><span>贸易方式</span>
+      <select name="trade_mode" id="trade_mode" required>
+        <option value="">请选择贸易方式</option>
+        {% for m in catalog.trade_modes %}<option value="{{ m.code }}">{{ m.code }} {{ m.label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="field"><span>商品项数</span>
+      <input name="item_count" id="item_count" type="number" min="1" max="60" required value="1">
+    </label>
+    <div class="form-actions"><button class="btn btn-primary" type="submit" id="create-btn">创建并录入表头</button></div>
+  </form>
+</main>
+{% endblock %}

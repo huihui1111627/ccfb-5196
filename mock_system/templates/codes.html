@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}税则查询 · 报关申报系统{% endblock %}
+{% block body %}
+<main class="page">
+  <div class="page-head"><h2>税则 / 代码查询</h2></div>
+  <form class="filterbar" method="get">
+    <input name="q" value="{{ q }}" placeholder="HS编码或商品名称">
+    <button class="btn" type="submit">查询</button>
+  </form>
+  <table class="grid">
+    <thead><tr><th>HS编码</th><th>商品名称</th><th>法定单位</th><th>申报要素</th></tr></thead>
+    <tbody>
+    {% for e in entries %}
+    <tr><td class="mono">{{ e.code }}</td><td>{{ e.name }}</td><td>{{ e.legal_unit }}</td>
+      <td class="small">{% for el in e.elements %}<span class="el-tag">{{ el.label }}{% if el.required %}*{% endif %}</span>{% endfor %}</td></tr>
+    {% else %}<tr><td colspan="4" class="empty">{% if q %}无匹配结果{% else %}请输入关键字{% endif %}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <div class="card">
+    <div class="section-title">贸易方式代码</div>
+    <table class="grid"><thead><tr><th>代码</th><th>名称</th><th>监管方式</th><th>征免性质</th></tr></thead>
+      <tbody>{% for m in trade_modes %}<tr><td class="mono">{{ m.code }}</td><td>{{ m.label }}</td><td>{{ m.nature }}</td><td>{{ m.duty_mode }}</td></tr>{% endfor %}</tbody></table>
+  </div>
+</main>
+{% endblock %}

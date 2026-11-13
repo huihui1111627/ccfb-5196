@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}核对差异 · 报关自动录入{% endblock %}
+{% block heading %}核对差异{% endblock %}
+{% block actions %}
+<form class="inline" method="get">
+  <label class="switch"><input type="checkbox" name="only_diff" value="1" {{ 'checked' if only_diff }} onchange="this.form.submit()">只看有差异</label>
+</form>
+{% endblock %}
+{% block content %}
+<div class="cards tight">
+  <div class="card metric"><span>比对次数</span><b>{{ totals['runs'] or 0 }}</b></div>
+  <div class="card metric good"><span>完全一致</span><b>{{ totals['clean'] or 0 }}</b></div>
+  <div class="card metric bad"><span>差异字段总数</span><b>{{ totals['diffs'] or 0 }}</b></div>
+</div>
+
+<section class="card">
+  <div class="card-head"><h2>回读比对记录</h2>
+    <span class="muted small">录入完成后自动回读系统数据，与源单逐字段比对；不一致的字段会进入下方列表</span></div>
+  <table class="table">
+    <thead><tr><th>发票号</th><th>报关单号</th><th>单据状态</th><th>比对数</th><th>不一致</th><th>结果</th><th>时间</th><th></th></tr></thead>
+    <tbody>
+    {% for r in runs %}
+      <tr>
+        <td><a class="link" href="{{ url_for('reconciliation_detail', decl_id=r['declaration_id']) }}">{{ r['invoice_no'] }}</a></td>
+        <td class="mono small">{{ r['mock_decl_id'] or '—' }}</td>
+        <td><span class="pill s-{{ r['decl_status'] }}">{{ status_label(r['decl_status']) }}</span></td>
+        <td>{{ r['total_fields'] }}</td>
+        <td class="{{ 'bad-text' if r['mismatched'] }}"><b>{{ r['mismatched'] }}</b></td>
+        <td>{% if r['mismatched'] %}<span class="pill diff">有差异</span>{% else %}<span class="pill ok">一致</span>{% endif %}</td>
+        <td class="mono small">{{ r['created_at'] }}</td>
+        <td><a class="btn sm" href="{{ url_for('reconciliation_detail', decl_id=r['declaration_id']) }}">查看</a></td>
+      </tr>
+    {% else %}<tr><td colspan="8" class="empty">还没有回读比对记录。完成一次录入后会自动生成。</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

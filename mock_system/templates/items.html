@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}商品明细 · 报关申报系统{% endblock %}
+{% block body %}
+<main class="page">
+  <div class="page-head">
+    <h2>商品明细 <span class="muted">#{{ decl['id'] }} · {{ decl['invoice_no'] }}</span></h2>
+    <div class="head-actions">
+      <a class="btn" href="{{ url_for('header_edit', decl_id=decl['id']) }}">表头</a>
+      <a class="btn" href="{{ url_for('declaration_detail', decl_id=decl['id']) }}">详情</a>
+    </div>
+  </div>
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}<div class="alert alert-{{ 'ok' if cat=='ok' else 'error' }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+
+  <div class="pager">
+    <div>共 {{ total }} 项，每页 {{ slots|length }} 项</div>
+    <div class="pages">
+      {% for p in range(1, pages+1) %}
+        <a class="page-btn {% if p==page %}active{% endif %}" href="{{ url_for('items_page', decl_id=decl['id'], page=p) }}">第{{ p }}页</a>
+      {% endfor %}
+    </div>
+    <div class="page-status">第 {{ page }} / {{ pages }} 页</div>
+  </div>
+
+  {% for seq in slots %}
+  {% set item = items.get(seq, {}) %}
+  <form method="post" action="{{ url_for('item_save', decl_id=decl['id'], seq_no=seq) }}" class="card item-card" id="item-form-{{ seq }}" data-seq="{{ seq }}">
+    <input type="hidden" name="page" value="{{ page }}">
+    <div class="item-head">
+      <span class="seq">第 {{ seq }} 项</span>
+      {% if item %}<span class="pill pill-approved small">已保存 {{ item.get('saved_at','') }}</span><span class="muted small">{{ item.get('updated_at','') }}</span>{% endif %}
+    </div>
+    <div class="form-grid">
+      <label class="field"><span>HS 编码 <i>*</i></span>
+        <input name="hs_code" id="hs_code_{{ seq }}" class="hs-code" value="{{ (item.get('hs_code') or '')|string }}" placeholder="10位商品编码">
+      </label>
+      <label class="field"><span>商品名称 <i>*</i></span>
+        <input name="goods_name" id="goods_name_{{ seq }}" value="{{ item.get('goods_name','') }}">
+      </label>
+      <label class="field"><span>规格型号</span>
+        <input name="specification" id="specification_{{ seq }}" value="{{ item.get('specification','') }}">
+      </label>
+      <label class="field"><span>品牌</span>
+        <input name="brand" id="brand_{{ seq }}" value="{{ item.get('brand','') }}">
+      </label>
+      <label class="field"><span>型号</span>
+        <input name="model" id="model_{{ seq }}" value="{{ item.get('model','') }}">
+      </label>
+      <label class="field"><span>成交数量 <i>*</i></span>
+        <input name="quantity" id="quantity_{{ seq }}" type="number" step="0.001" value="{{ item.get('quantity','') }}">
+      </label>
+      <label class="field"><span>成交单位</span>
+        <input name="unit" id="unit_{{ seq }}" value="{{ item.get('unit','') }}">
+      </label>
+      <label class="field"><span>法定数量 <i>*</i></span>
+        <input name="legal_quantity" id="legal_quantity_{{ seq }}" type="number" step="0.001" value="{{ item.get('legal_quantity','') }}">
+      </label>
+      <label class="field"><span>法定单位</span>
+        <input name="legal_unit" id="legal_unit_{{ seq }}" value="{{ item.get('legal_unit','') }}">
+      </label>
+      <label class="field"><span>第二数量</span>
+        <input name="second_quantity" id="second_quantity_{{ seq }}" type="number" step="0.001" value="{{ item.get('second_quantity','') }}">
+      </label>
+      <label class="field"><span>第二单位</span>
+        <input name="second_unit" id="second_unit_{{ seq }}" value="{{ item.get('second_unit','') }}">
+      </label>
+      <label class="field"><span>单价</span>
+        <input name="unit_price" id="unit_price_{{ seq }}" type="number" step="0.0001" value="{{ item.get('unit_price','') }}">
+      </label>
+      <label class="field"><span>总价 <i>*</i></span>
+        <input name="total_price" id="total_price_{{ seq }}" type="number" step="0.01" value="{{ item.get('total_price','') }}">
+      </label>
+      <label class="field"><span>原产国 <i>*</i></span>
+        <input name="origin_country" id="origin_country_{{ seq }}" value="{{ item.get('origin_country','') }}">
+      </label>
+      {% if bonded %}
+      <label class="field"><span>备案序号</span>
+        <input name="bonded_item_no" id="bonded_item_no_{{ seq }}" value="{{ item.get('bonded_item_no','') }}">
+      </label>
+      {% endif %}
+    </div>
+    <div class="elements-block" id="elements_{{ seq }}">
+      <div class="section-title">申报要素 <span class="hint-inline">输入 HS 编码后自动加载</span></div>
+      {% set els = item.get('elements', {}) %}
+      {% if els %}
+        <div class="form-grid">
+        {% for k, v in els.items() %}
+          <label class="field"><span>要素 {{ element_labels.get(k, k) }}</span><input name="element_{{ k }}" id="element_{{ seq }}_{{ k }}" data-element-key="{{ k }}" value="{{ v }}"></label>
+        {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted small">尚未加载申报要素</p>
+      {% endif %}
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit" id="save-item-{{ seq }}">保存第 {{ seq }} 项</button>
+    </div>
+  </form>
+  {% endfor %}
+
+  <div class="card nav-bottom">
+  {% if page > 1 %}<a class="btn" href="{{ url_for('items_page', decl_id=decl['id'], page=page-1) }}">← 上一页</a>{% endif %}
+  {% if page < pages %}<a class="btn btn-primary" href="{{ url_for('items_page', decl_id=decl['id'], page=page+1) }}">下一页 →</a>{% endif %}
+  <a class="btn" href="{{ url_for('submit_page', decl_id=decl['id']) }}">进入申报</a>
+  </div>
+</main>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script>initItemCards();</script>
+{% endblock %}

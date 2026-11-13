@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}总览 · 报关自动录入{% endblock %}
+{% block heading %}总览{% endblock %}
+{% block content %}
+<div class="cards">
+  <div class="card metric"><span>待录队列</span><b>{{ counts.get('validated', 0) + counts.get('queued', 0) }}</b><small>已校验待录入</small></div>
+  <div class="card metric"><span>录入中</span><b>{{ counts.get('recording', 0) }}</b><small>浏览器正在操作</small></div>
+  <div class="card metric good"><span>今日审核通过</span><b>{{ today.approved_count if today else 0 }}</b><small>成功率 {{ success_rate ~ '%' if success_rate is not none else '—' }}</small></div>
+  <div class="card metric warn"><span>今日退单</span><b>{{ today.rejected_count if today else 0 }}</b><small>待处理 {{ open_rej }}</small></div>
+  <div class="card metric bad"><span>校验未通过</span><b>{{ counts.get('hold', 0) }}</b><small>需人工修正</small></div>
+  <div class="card metric"><span>异常</span><b>{{ counts.get('abnormal', 0) }}</b><small>已达重试上限</small></div>
+  <div class="card metric"><span>回读有差异</span><b>{{ open_diff }}</b><small>逐字段比对不一致</small></div>
+</div>
+
+<div class="grid2">
+  <section class="card">
+    <div class="card-head"><h2>最近单据</h2><a class="link" href="{{ url_for('queue') }}">查看全部 →</a></div>
+    <table class="table">
+      <thead><tr><th>发票号</th><th>贸易方式</th><th>状态</th><th>更新时间</th></tr></thead>
+      <tbody>
+      {% for r in recent %}
+        <tr>
+          <td><a class="link" href="{{ url_for('declaration_detail', decl_id=r['id']) }}">{{ r['invoice_no'] }}</a></td>
+          <td>{{ r['trade_mode'] }}</td>
+          <td><span class="pill s-{{ r['status'] }}">{{ status_label(r['status']) }}</span></td>
+          <td class="mono small">{{ r['updated_at'] }}</td>
+        </tr>
+      {% else %}<tr><td colspan="4" class="empty">还没有导入任何发票</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="card">
+    <div class="card-head"><h2>最近导入批次</h2><a class="link" href="{{ url_for('queue') }}">去导入 →</a></div>
+    <table class="table">
+      <thead><tr><th>文件</th><th>解析</th><th>新建</th><th>重复</th></tr></thead>
+      <tbody>
+      {% for b in batches %}
+        <tr>
+          <td><a class="link" href="{{ url_for('import_report', batch_id=b['id']) }}">{{ b['filename'] }}</a></td>
+          <td>{{ b['total_rows'] }}</td><td>{{ b['imported_rows'] }}</td><td>{{ b['skipped_rows'] }}</td>
+        </tr>
+      {% else %}<tr><td colspan="4" class="empty">暂无导入记录</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<section class="card tip">
+  <h2>全流程</h2>
+  <ol class="flow">
+    <li><b>导入</b> Excel / PDF 发票，自动拆票并校验 HS 编码与申报要素</li>
+    <li><b>录入</b> Playwright 逐票操作申报系统，联动字段出现后再填，逐步截图</li>
+    <li><b>会话</b> 20 分钟过期后自动重登，从当前商品明细行续录</li>
+    <li><b>核对</b> 回读系统中已申报数据，与源单逐字段比对，不一致标红</li>
+    <li><b>退单</b> 解析退单原因进入处理队列，修复后沿用原单号重录</li>
+    <li><b>防重</b> 指纹唯一 + 提交台账 + 系统侧唯一参考号，三重保证不重复申报</li>
+  </ol>
+</section>
+{% endblock %}

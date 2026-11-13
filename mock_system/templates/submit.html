@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}申报 · 报关申报系统{% endblock %}
+{% block body %}
+<main class="page">
+  <div class="page-head"><h2>申报 <span class="muted">#{{ decl['id'] }} · {{ decl['client_ref'] }}</span></h2>
+    <a class="btn" href="{{ url_for('items_page', decl_id=decl['id']) }}">返回明细</a></div>
+  {% if result %}
+    {% if result.get('approved') %}
+      <div class="alert alert-ok big" id="submit-result">
+        <strong>申报成功，审核通过</strong>
+        <div>报关单号：<span class="mono" id="result-decl-no">{{ result.get('decl_no') }}</span></div>
+      </div>
+    {% elif result.get('rejected') %}
+      <div class="alert alert-error big" id="submit-result">
+        <strong>退单</strong>
+        <div>报关单号：<span class="mono" id="result-decl-no">{{ result.get('decl_no') }}</span></div>
+        <div id="reject-reason">{{ result.get('reason') }}</div>
+      </div>
+    {% elif result.get('duplicate') %}
+      <div class="alert alert-warn big" id="submit-result"><strong>重复申报已拦截</strong><div>{{ result.get('message') }}</div></div>
+    {% else %}
+      <div class="alert alert-error big" id="submit-result"><strong>未提交</strong><div>{{ result.get('message') }}</div></div>
+    {% endif %}
+  {% endif %}
+  {% if errors %}
+  <div class="card">
+    <div class="section-title">申报前校验未通过</div>
+    <ul class="error-list">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+  <div class="card">
+    <div class="section-title">申报信息确认</div>
+    <div class="kv-grid">
+      <div><span>客户参考号</span><b class="mono">{{ decl['client_ref'] }}</b></div>
+      <div><span>发票号</span><b>{{ header.get('invoice_no', decl['invoice_no']) }}</b></div>
+      <div><span>贸易方式</span><b>{{ decl['trade_mode'] }}</b></div>
+      <div><span>申报地海关</span><b>{{ header.get('port_code','—') }}</b></div>
+      <div><span>币制</span><b>{{ header.get('currency','—') }}</b></div>
+      <div><span>商品项数</span><b>{{ decl['item_count'] }}</b></div>
+      <div><span>已录入明细</span><b>{{ items|length }} 项</b></div>
+      <div><span>当前状态</span><b>{% if decl['status']=='draft' %}草稿{% elif decl['status']=='submitted' %}已申报{% elif decl['status']=='approved' %}审核通过{% else %}已退单{% endif %}</b></div>
+    </div>
+  </div>
+  <div class="card">
+    <table class="grid">
+      <thead><tr><th>项号</th><th>HS编码</th><th>商品名称</th><th>数量</th><th>总价</th><th>原产国</th></tr></thead>
+      <tbody>
+      {% for seq, it in items.items() %}
+        <tr><td>{{ seq }}</td><td class="mono">{{ it.get('hs_code') }}</td><td>{{ it.get('goods_name') }}</td>
+          <td>{{ it.get('quantity') }} {{ it.get('unit') }}</td><td>{{ it.get('total_price') }}</td><td>{{ it.get('origin_country') }}</td></tr>
+      {% else %}<tr><td colspan="6" class="empty">暂无明细</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if not result or result.get('rejected') or result.get('duplicate') %}
+  <form method="post" class="card">
+    <div class="form-actions">
+      <button class="btn btn-primary btn-wide" type="submit" id="submit-decl">提交申报</button>
+    </div>
+    {% if decl['status'] == 'rejected' %}
+    <p class="muted small">该单曾被退单：{{ decl['reject_reason'] }}。如已修改明细/表头，可再次提交（原报关单号保留）。</p>
+    {% endif %}
+  </form>
+  {% endif %}
+</main>
+{% endblock %}

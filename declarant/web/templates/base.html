@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}报关单自动录入控制台{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<aside class="sidebar">
+  <div class="logo">
+    <span class="logo-mark">关</span>
+    <div><strong>报关自动录入</strong><small>Declarant Automation</small></div>
+  </div>
+  <nav class="nav">
+    {% set ep = request.endpoint %}
+    <a class="{{ 'active' if ep == 'dashboard' }}" href="{{ url_for('dashboard') }}"><i>◎</i>总览</a>
+    <a class="{{ 'active' if ep == 'queue' }}" href="{{ url_for('queue') }}"><i>▤</i>待录队列</a>
+    <a class="{{ 'active' if ep == 'jobs' }}" href="{{ url_for('jobs') }}"><i>⚙</i>录入任务</a>
+    <a class="{{ 'active' if ep == 'reconciliation_page' }}" href="{{ url_for('reconciliation_page') }}"><i>⇄</i>核对差异</a>
+    <a class="{{ 'active' if ep == 'rejections_page' }}" href="{{ url_for('rejections_page') }}"><i>!</i>退单处理</a>
+    <a class="{{ 'active' if ep == 'stats_page' }}" href="{{ url_for('stats_page') }}"><i>▦</i>统计报表</a>
+    <a class="{{ 'active' if ep == 'settings_page' }}" href="{{ url_for('settings_page') }}"><i>⚙</i>设置</a>
+  </nav>
+  <div class="worker-badge {{ 'on' if worker_state.running }}">
+    <div class="dot"></div>
+    <div>
+      <b>{{ '录入进程运行中' if worker_state.running else '录入进程空闲' }}</b>
+      <small>{% if worker_state.running %}方式：{{ '队列' if worker_state.mode == 'daemon' else '单票 #' ~ worker_state.decl_id }}{% else %}等待启动{% endif %}</small>
+    </div>
+  </div>
+</aside>
+<main class="main">
+  <header class="topbar">
+    <h1>{% block heading %}{% endblock %}</h1>
+    <div class="top-actions">
+      <span class="date">{{ now_str }}</span>
+      {% block actions %}{% endblock %}
+    </div>
+  </header>
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% if msgs %}
+    <div class="flash-stack">
+      {% for cat, msg in msgs %}<div class="flash flash-{{ cat }}">{{ msg }}</div>{% endfor %}
+    </div>
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+{% block scripts %}{% endblock %}
+</body>
+</html>

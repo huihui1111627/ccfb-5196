@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ day }} 明细 · 报关自动录入{% endblock %}
+{% block heading %}{{ day }} 录入明细{% endblock %}
+{% block actions %}<a class="btn" href="{{ url_for('stats_page') }}">← 返回统计</a>{% endblock %}
+{% block content %}
+{% if stat %}
+<div class="cards tight">
+  <div class="card metric"><span>导入</span><b>{{ stat['imported_count'] }}</b></div>
+  <div class="card metric"><span>提交</span><b>{{ stat['submitted_count'] }}</b></div>
+  <div class="card metric good"><span>通过</span><b>{{ stat['approved_count'] }}</b></div>
+  <div class="card metric warn"><span>退单</span><b>{{ stat['rejected_count'] }}</b></div>
+</div>
+{% endif %}
+<section class="card">
+  <table class="table">
+    <thead><tr><th>发票号</th><th>报关单号</th><th>贸易方式</th><th>状态</th><th>退单原因</th><th>更新时间</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td><a class="link" href="{{ url_for('declaration_detail', decl_id=r['id']) }}">{{ r['invoice_no'] }}</a></td>
+        <td class="mono small">{{ r['mock_decl_id'] or '—' }}</td>
+        <td>{{ r['trade_mode'] }}</td>
+        <td><span class="pill s-{{ r['status'] }}">{{ status_label(r['status']) }}</span></td>
+        <td class="small muted">{{ r['reject_reason'] or '' }}</td>
+        <td class="mono small">{{ r['updated_at'] }}</td>
+      </tr>
+    {% else %}<tr><td colspan="6" class="empty">该日没有单据</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

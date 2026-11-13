@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}修正 #{{ d['id'] }} · 报关自动录入{% endblock %}
+{% block heading %}修正报关单 #{{ d['id'] }} · {{ d['invoice_no'] }}{% endblock %}
+{% block actions %}<a class="btn" href="{{ url_for('declaration_detail', decl_id=d['id']) }}">← 返回</a>{% endblock %}
+{% block content %}
+<form method="post" class="stack-form">
+  <section class="card">
+    <div class="card-head"><h2>表头</h2><span class="muted small">修改后会自动重新校验</span></div>
+    <div class="form-grid">
+      {% for f in header_fields %}
+      <label class="field"><span>{{ f }}</span>
+        <input name="{{ f }}" value="{{ d[f] if d[f] is not none else '' }}">
+      </label>
+      {% endfor %}
+      <label class="field"><span>exchange_rate</span><input name="exchange_rate" value="{{ d['exchange_rate'] }}"></label>
+      <label class="field"><span>package_count</span><input name="package_count" value="{{ d['package_count'] }}"></label>
+      <label class="field"><span>gross_weight</span><input name="gross_weight" value="{{ d['gross_weight'] }}"></label>
+      <label class="field"><span>net_weight</span><input name="net_weight" value="{{ d['net_weight'] }}"></label>
+      <label class="field"><span>total_amount</span><input name="total_amount" value="{{ d['total_amount'] }}"></label>
+      {% for f in linked_fields %}
+      <label class="field"><span>{{ f.label }}（贸易方式联动）</span>
+        <input name="{{ f.name }}" value="{{ (d.get('linked') or {}).get(f.name, '') }}">
+      </label>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% for it in d['items'] %}
+  {% set seq = it['seq_no'] %}
+  <section class="card">
+    <div class="card-head"><h2>第 {{ seq }} 项 · {{ it['goods_name'] }}</h2></div>
+    <div class="form-grid">
+      {% for f, label in [('hs_code','HS编码'),('goods_name','商品名称'),('specification','规格型号'),
+                          ('brand','品牌'),('model','型号'),('unit','成交单位'),
+                          ('legal_unit','法定单位'),('origin_country','原产国')] %}
+      <label class="field"><span>{{ label }}</span>
+        <input name="item_{{ seq }}_{{ f }}" value="{{ it[f] if it[f] is not none else '' }}"></label>
+      {% endfor %}
+      {% for f, label in [('quantity','成交数量'),('legal_quantity','法定数量'),
+                          ('second_quantity','第二数量'),('unit_price','单价'),('total_price','总价')] %}
+      <label class="field"><span>{{ label }}</span>
+        <input name="item_{{ seq }}_{{ f }}" value="{{ it[f] if it[f] is not none else '' }}"></label>
+      {% endfor %}
+    </div>
+    {% set entry = catalog.hs_codes.get(it['hs_code']) %}
+    {% if entry %}
+    <div class="sub-title">申报要素（{{ entry.name }}）</div>
+    <div class="form-grid">
+      {% for spec in entry.elements %}
+      <label class="field"><span>{{ spec.label }}{% if spec.required %} *{% endif %}</span>
+        {% if spec.kind == 'select' %}
+        <select name="item_{{ seq }}_el_{{ spec.key }}">
+          <option value="">请选择</option>
+          {% for opt in spec.options %}<option value="{{ opt }}" {{ 'selected' if (it['elements'] or {}).get(spec.key) == opt }}>{{ opt }}</option>{% endfor %}
+        </select>
+        {% else %}
+        <input name="item_{{ seq }}_el_{{ spec.key }}" value="{{ (it['elements'] or {}).get(spec.key, '') }}">
+        {% endif %}
+      </label>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted small">HS 编码不在税则库中，修改编码后再保存以加载申报要素。</p>
+    {% endif %}
+  </section>
+  {% endfor %}
+
+  <div class="sticky-actions">
+    <button class="btn btn-primary" type="submit">保存并重新校验</button>
+    <span class="muted small">保存后将清除待处理差异标记；仍可重新入队录入</span>
+  </div>
+</form>
+{% endblock %}

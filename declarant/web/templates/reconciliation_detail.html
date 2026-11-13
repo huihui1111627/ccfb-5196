@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}比对详情 · 报关自动录入{% endblock %}
+{% block heading %}比对详情 · {{ d['invoice_no'] }}{% endblock %}
+{% block actions %}
+<a class="btn" href="{{ url_for('reconciliation_page') }}">← 返回</a>
+<form class="inline" method="post" action="{{ url_for('reconciliation_rerun', decl_id=d['id']) }}">
+  <button class="btn primary">重新回读比对</button>
+</form>
+{% endblock %}
+{% block content %}
+<div class="cards tight">
+  <div class="card metric"><span>系统单号</span><b class="mono small">{{ run['mock_decl_id'] if run else '—' }}</b></div>
+  <div class="card metric"><span>字段总数</span><b>{{ run['total_fields'] if run else 0 }}</b></div>
+  <div class="card metric {{ 'bad' if run and run['mismatched'] }}"><span>不一致</span><b>{{ run['mismatched'] if run else 0 }}</b></div>
+  <div class="card metric"><span>比对时间</span><b class="mono small">{{ run['created_at'] if run else '—' }}</b></div>
+</div>
+{% if not run %}
+<div class="alert warn">尚未进行回读比对。</div>
+{% else %}
+<section class="card">
+  <div class="card-head"><h2>逐字段比对</h2><span class="muted small">红色 = 源单与系统不一致</span></div>
+  <table class="table compare">
+    <thead><tr><th>字段</th><th>源单（Excel/PDF）</th><th>系统回读</th><th>结果</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr class="{{ '' if r['match'] else 'mismatch' }}">
+        <td class="mono small">{{ r['field_path'] }}<br><span class="muted">{{ r['label'] }}</span></td>
+        <td>{{ r['source_value'] or '—' }}</td>
+        <td>{{ r['system_value'] or '—' }}</td>
+        <td>{% if r['match'] %}<span class="pill ok">一致</span>{% else %}<span class="pill diff">不一致</span>{% endif %}</td>
+      </tr>
+    {% else %}<tr><td colspan="4" class="empty">无比对数据</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

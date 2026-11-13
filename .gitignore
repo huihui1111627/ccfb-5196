@@ -16,3 +16,8 @@ node_modules/
 __pycache__/
 .venv/
 venv/
+
+# runtime data produced by start.sh / tests
+data/*
+!data/.gitkeep
+.pytest_cache/

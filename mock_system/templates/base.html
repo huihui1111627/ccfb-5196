@@ -1,0 +1,58 @@
+{% macro status_pill(status) -%}
+{% set map = {'draft':'草稿','submitted':'已申报','approved':'审核通过','rejected':'已退单'} %}
+<span class="pill pill-{{ status }}">{{ map.get(status, status) }}</span>
+{%- endmacro %}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}单一窗口 · 报关申报{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">关</span>
+    <div>
+      <strong>跨境电商报关申报系统</strong>
+      <small>本地模拟环境 · Mock Customs Declaration System</small>
+    </div>
+  </div>
+  <nav class="mainnav">
+    <a href="{{ url_for('index') }}">报关单管理</a>
+    <a href="{{ url_for('new_declaration') }}">新建报关单</a>
+    <a href="{{ url_for('lookup') }}">单号查询</a>
+    <a href="{{ url_for('codes') }}">税则查询</a>
+  </nav>
+  <div class="userbox">
+    {% if current_user %}
+      <span class="user">报关员 {{ current_user }}</span>
+      <span class="session-chip" id="session-chip">会话 --:--</span>
+      <a class="logout" href="{{ url_for('logout') }}">退出</a>
+    {% endif %}
+  </div>
+</header>
+{% block body %}{% endblock %}
+<script>
+  (function () {
+    var exp = {{ session_expires_at|int }};
+    var chip = document.getElementById('session-chip');
+    if (!chip) return;
+    function tick() {
+      var left = Math.floor((exp - Date.now()) / 1000);
+      if (left <= 0) {
+        chip.textContent = '会话已过期';
+        chip.classList.add('expired');
+        window.location.href = "{{ url_for('login') }}?expired=1&next=" + encodeURIComponent(location.pathname + location.search);
+        return;
+      }
+      var m = Math.floor(left / 60), s = left % 60;
+      chip.textContent = '会话 ' + m + ':' + (s < 10 ? '0' + s : s);
+    }
+    tick(); setInterval(tick, 1000);
+  })();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

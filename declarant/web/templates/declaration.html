@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}报关单 #{{ d['id'] }} · 报关自动录入{% endblock %}
+{% block heading %}报关单 #{{ d['id'] }} · {{ d['invoice_no'] }}{% endblock %}
+{% block actions %}
+<a class="btn" href="{{ url_for('queue') }}">← 返回队列</a>
+{% if d['status'] in ('hold','abnormal','validated','queued') %}
+<a class="btn" href="{{ url_for('declaration_edit', decl_id=d['id']) }}">修正数据</a>
+{% endif %}
+{% if d['status'] in ('validated','queued','abnormal','hold') %}
+<form class="inline" method="post" action="{{ url_for('worker_start') }}">
+  <input type="hidden" name="mode" value="single"><input type="hidden" name="decl_id" value="{{ d['id'] }}">
+  <button class="btn primary">立即录入本票</button>
+</form>
+{% endif %}
+{% endblock %}
+{% block content %}
+<div class="cards tight">
+  <div class="card metric"><span>状态</span><b class="status s-{{ d['status'] }}">{{ status_label(d['status']) }}</b></div>
+  <div class="card metric"><span>贸易方式</span><b>{{ d['trade_mode'] }}</b><small>{{ d['nature'] or '' }} / {{ d['duty_mode'] or '' }}</small></div>
+  <div class="card metric"><span>商品项数</span><b>{{ d['items']|length }}</b></div>
+  <div class="card metric"><span>源文件</span><b class="small">{{ d['source_file'] }}</b>
+    <small>{{ d['source_kind'] }}{% if d['source_page'] %} 第 {{ d['source_page'] }} 页{% endif %}{% if batch %} · 批次 {{ batch['id'] }}{% endif %}</small></div>
+  <div class="card metric"><span>系统单号</span><b class="mono small">{{ d['mock_decl_id'] or '—' }}</b></div>
+  <div class="card metric"><span>指纹</span><b class="mono tiny">{{ d['fingerprint'][:16] }}…</b><small>重复申报拦截依据</small></div>
+</div>
+
+{% if d['reject_reason'] %}
+<div class="alert {{ 'error' if open_rejections else '' }}">
+  <b>最近一次退单原因：</b>{{ d['reject_reason'] }}
+  {% if d['reject_category'] %}<span class="pill">{{ d['reject_category'] }}</span>{% endif %}
+  {% if open_rejections %}
+    <a class="link" href="{{ url_for('rejections_page') }}">去退单处理 →</a>
+  {% else %}
+    <span class="pill ok">已处理并重新申报成功</span>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if issues %}
+<section class="card">
+  <div class="card-head"><h2>校验提示（{{ issues|length }}）</h2>
+    <form method="post" action="{{ url_for('validate_decl', decl_id=d['id']) }}"><button class="btn">重新校验</button></form>
+  </div>
+  <ul class="issues">
+    {% for i in issues %}
+    <li class="issue-{{ i.severity }}"><span class="sev">{{ '错误' if i.severity == 'error' else '警告' }}</span>
+      <span class="mono small">{{ i.field }}</span> {{ i.message }}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<div class="grid2">
+  <section class="card">
+    <div class="card-head"><h2>表头</h2><span class="muted small">{{ d['invoice_no'] }} · 汇率 {{ d['exchange_rate'] }} · {{ d['currency'] }}</span></div>
+    <dl class="kv">
+      <dt>合同号</dt><dd>{{ d['contract_no'] or '—' }}</dd>
+      <dt>申报地海关</dt><dd>{{ d['port_code'] or '—' }}</dd>
+      <dt>运输方式</dt><dd>{{ d['transport_mode'] or '—' }}</dd>
+      <dt>运输工具/航次</dt><dd>{{ d['vessel_voyage'] or '—' }}</dd>
+      <dt>贸易国</dt><dd>{{ d['trade_country'] or '—' }}</dd>
+      <dt>运抵国</dt><dd>{{ d['dest_country'] or '—' }}</dd>
+      <dt>成交方式</dt><dd>{{ d['trade_terms'] or '—' }}</dd>
+      <dt>包装</dt><dd>{{ d['package_count'] }} {{ d['packing_type'] or '' }}</dd>
+      <dt>毛重/净重</dt><dd>{{ d['gross_weight'] }} / {{ d['net_weight'] }}</dd>
+      <dt>总价</dt><dd>{{ d['total_amount'] }}</dd>
+      {% for k, v in (d.get('linked') or {}).items() %}<dt class="linked">{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}
+    </dl>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>处理轨迹</h2>
+      <a class="link" href="{{ url_for('jobs') }}">全部日志 →</a></div>
+    <ul class="timeline">
+      {% for l in logs[:14] %}
+      <li class="lv-{{ l['level'] }}">
+        <span class="t mono">{{ l['created_at'][11:] }}</span>
+        <div><b>{{ l['event'] }}</b> {{ l['message'] }}
+          {% if l['screenshot'] %}<a class="link shot" target="_blank" href="{{ url_for('screenshot_file', filename=l['screenshot'].split('/')[-1]) }}">截图</a>{% endif %}
+        </div>
+      </li>
+      {% else %}<li class="muted">暂无日志</li>{% endfor %}
+    </ul>
+  </section>
+</div>
+
+<section class="card">
+  <div class="card-head"><h2>商品明细</h2></div>
+  <table class="table">
+    <thead><tr><th>#</th><th>HS编码</th><th>商品名称</th><th>规格/型号</th><th>数量</th><th>法定数量</th><th>单价</th><th>总价</th><th>原产国</th><th>申报要素</th></tr></thead>
+    <tbody>
+    {% for it in d['items'] %}
+      <tr>
+        <td>{{ it['seq_no'] }}</td>
+        <td class="mono">{{ it['hs_code'] }}</td>
+        <td>{{ it['goods_name'] }}</td>
+        <td class="small">{{ it['specification'] }}<br><span class="muted">{{ it['brand'] }} {{ it['model'] }}</span></td>
+        <td>{{ it['quantity'] }} {{ it['unit'] }}</td>
+        <td>{{ it['legal_quantity'] or '—' }} {{ it['legal_unit'] or '' }}</td>
+        <td>{{ it['unit_price'] }}</td>
+        <td>{{ it['total_price'] }}</td>
+        <td>{{ it['origin_country'] }}</td>
+        <td class="els">{% for k, v in (it['elements'] or {}).items() %}<span class="el">{{ k }}={{ v }}</span>{% endfor %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% if diff %}
+<section class="card">
+  <div class="card-head"><h2>回读比对（未处理差异 {{ diff|length }}）</h2>
+    <a class="link" href="{{ url_for('reconciliation_detail', decl_id=d['id']) }}">完整比对 →</a></div>
+  <table class="table">
+    <thead><tr><th>字段</th><th>源单</th><th>系统</th></tr></thead>
+    <tbody>
+    {% for r in diff[:10] %}
+      <tr class="diff-row"><td class="mono small">{{ r['field_path'] }}</td>
+        <td class="src">{{ r['source_value'] }}</td><td class="sys">{{ r['system_value'] }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{% if job %}
+<section class="card">
+  <div class="card-head"><h2>录入任务</h2></div>
+  <dl class="kv">
+    <dt>任务状态</dt><dd>{{ job['status'] }}</dd>
+    <dt>当前步骤</dt><dd>{{ job['step'] or '—' }}</dd>
+    <dt>尝试次数</dt><dd>{{ job['attempt'] }} / {{ job['max_attempts'] }}</dd>
+    <dt>续录位置</dt><dd>第 {{ (job['payload'] or {}).get('next_seq', 1) }} 项</dd>
+    <dt>备注</dt><dd>{{ job['note'] or '—' }}</dd>
+  </dl>
+</section>
+{% endif %}
+{% endblock %}

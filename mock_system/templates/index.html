@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}报关单管理 · 报关申报系统{% endblock %}
+{% block body %}
+<main class="page">
+  <div class="page-head">
+    <h2>报关单管理</h2>
+    <a class="btn btn-primary" href="{{ url_for('new_declaration') }}">＋ 新建报关单</a>
+  </div>
+  <div class="stat-row">
+    {% for key, label in [('draft','草稿'),('submitted','已申报'),('approved','审核通过'),('rejected','已退单')] %}
+    <div class="stat"><b>{{ counts.get(key, 0) }}</b><span>{{ label }}</span></div>
+    {% endfor %}
+  </div>
+  <form class="filterbar" method="get" action="{{ url_for('index') }}">
+    <input name="q" value="{{ q }}" placeholder="发票号 / 客户参考号 / 报关单号">
+    <select name="status">
+      <option value="">全部状态</option>
+      {% for key, label in [('draft','草稿'),('submitted','已申报'),('approved','审核通过'),('rejected','已退单')] %}
+      <option value="{{ key }}" {% if status == key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn" type="submit">查询</button>
+  </form>
+  <table class="grid">
+    <thead><tr><th>报关单号</th><th>客户参考号</th><th>发票号</th><th>贸易方式</th><th>项数</th><th>状态</th><th>更新时间</th><th></th></tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="mono">{{ r['decl_no'] or '—' }}</td>
+        <td class="mono">{{ r['client_ref'] }}</td>
+        <td>{{ r['invoice_no'] }}</td>
+        <td>{{ r['trade_mode'] }}</td>
+        <td>{{ r['item_count'] }}</td>
+        <td>{% if r['status']=='draft' %}<span class="pill pill-draft">草稿</span>{% elif r['status']=='submitted' %}<span class="pill pill-submitted">已申报</span>{% elif r['status']=='approved' %}<span class="pill pill-approved">审核通过</span>{% else %}<span class="pill pill-rejected">已退单</span>{% endif %}</td>
+        <td class="mono small">{{ r['updated_at'] }}</td>
+        <td><a class="link" href="{{ url_for('declaration_detail', decl_id=r['id']) }}">查看</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="empty">暂无报关单</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</main>
+{% endblock %}
